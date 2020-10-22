@@ -39,7 +39,10 @@ struct device *sof_client_get_dma_dev(struct sof_client_dev *cdev);
 int sof_client_dev_register(struct snd_sof_dev *sdev, const char *name, u32 id,
 			    const void *data, size_t size);
 void sof_client_dev_unregister(struct snd_sof_dev *sdev, const char *name, u32 id);
-#else
+
+int sof_register_clients(struct snd_sof_dev *sdev);
+void sof_unregister_clients(struct snd_sof_dev *sdev);
+#else /* CONFIG_SND_SOC_SOF_CLIENT */
 static inline int sof_client_dev_register(struct snd_sof_dev *sdev, const char *name,
 					  u32 id, const void *data, size_t size)
 {
@@ -50,6 +53,15 @@ static inline void sof_client_dev_unregister(struct snd_sof_dev *sdev,
 					     const char *name, u32 id)
 {
 }
-#endif
+
+static inline int sof_register_clients(struct snd_sof_dev *sdev)
+{
+	return 0;
+}
+
+static inline  void sof_unregister_clients(struct snd_sof_dev *sdev)
+{
+}
+#endif /* CONFIG_SND_SOC_SOF_CLIENT */
 
 #endif /* __SOC_SOF_CLIENT_H */

@@ -12,6 +12,7 @@
 #include <linux/module.h>
 #include <sound/soc.h>
 #include <sound/sof.h>
+#include "sof-client.h"
 #include "sof-priv.h"
 #include "ops.h"
 #if IS_ENABLED(CONFIG_SND_SOC_SOF_DEBUG_PROBES)
@@ -238,6 +239,12 @@ static int sof_probe_continue(struct snd_sof_dev *sdev)
 		goto fw_trace_err;
 	}
 
+	ret = sof_register_clients(sdev);
+	if (ret < 0) {
+		dev_err(sdev->dev, "error: failed to register clients %d\n", ret);
+		goto sof_machine_err;
+	}
+
 	/*
 	 * Some platforms in SOF, ex: BYT, may not have their platform PM
 	 * callbacks set. Increment the usage count so as to
@@ -253,6 +260,8 @@ static int sof_probe_continue(struct snd_sof_dev *sdev)
 
 	return 0;
 
+sof_machine_err:
+	snd_sof_machine_unregister(sdev, plat_data);
 fw_trace_err:
 	snd_sof_free_trace(sdev);
 fw_run_err:
@@ -376,6 +385,9 @@ int snd_sof_device_remove(struct device *dev)
 		snd_sof_free_debug(sdev);
 		snd_sof_free_trace(sdev);
 	}
+
+	/* Unregister SOF clients */
+	sof_unregister_clients(sdev);
 
 	/*
 	 * Unregister machine driver. This will unbind the snd_card which

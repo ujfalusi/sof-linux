@@ -288,6 +288,10 @@ struct snd_sof_dsp_ops {
 	void (*set_mach_params)(const struct snd_soc_acpi_mach *mach,
 				struct snd_sof_dev *sdev); /* optional */
 
+	/* IPC client ops */
+	int (*register_ipc_clients)(struct snd_sof_dev *sdev); /* optional */
+	void (*unregister_ipc_clients)(struct snd_sof_dev *sdev); /* optional */
+
 	/* DAI ops */
 	struct snd_soc_dai_driver *drv;
 	int num_drv;
