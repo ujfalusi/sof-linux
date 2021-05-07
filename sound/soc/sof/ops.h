@@ -254,6 +254,9 @@ static inline int snd_sof_debugfs_add_region_item(struct snd_sof_dev *sdev,
 	return 0;
 }
 
+/* bar to __iomem */
+#define sof_bar_to_iomem(sdev, idx)	(sdev->bar[idx])
+
 /* register IO */
 static inline void snd_sof_dsp_write(struct snd_sof_dev *sdev, u32 bar,
 				     u32 offset, u32 value)
