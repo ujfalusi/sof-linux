@@ -243,14 +243,18 @@ snd_sof_dsp_set_power_state(struct snd_sof_dev *sdev,
 /* debug */
 static inline void snd_sof_dsp_dbg_dump(struct snd_sof_dev *sdev, u32 flags)
 {
-	if (sof_ops(sdev)->dbg_dump)
+	if (sof_ops(sdev)->dbg_dump && !sdev->dbg_dump_printed) {
 		sof_ops(sdev)->dbg_dump(sdev, flags);
+		sdev->dbg_dump_printed = true;
+	}
 }
 
 static inline void snd_sof_ipc_dump(struct snd_sof_dev *sdev)
 {
-	if (sof_ops(sdev)->ipc_dump)
+	if (sof_ops(sdev)->ipc_dump  && !sdev->ipc_dump_printed) {
 		sof_ops(sdev)->ipc_dump(sdev);
+		sdev->ipc_dump_printed = true;
+	}
 }
 
 static inline int snd_sof_debugfs_add_region_item(struct snd_sof_dev *sdev,

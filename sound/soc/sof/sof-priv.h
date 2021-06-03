@@ -424,6 +424,8 @@ struct snd_sof_dev {
 	/* debug */
 	struct dentry *debugfs_root;
 	struct list_head dfsentry_list;
+	bool dbg_dump_printed;
+	bool ipc_dump_printed;
 
 	/* firmware loader */
 	struct snd_dma_buffer dmab;
