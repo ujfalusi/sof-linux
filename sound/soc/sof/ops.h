@@ -244,7 +244,9 @@ snd_sof_dsp_set_power_state(struct snd_sof_dev *sdev,
 static inline void snd_sof_dsp_dbg_dump(struct snd_sof_dev *sdev, u32 flags)
 {
 	if (sof_ops(sdev)->dbg_dump && !sdev->dbg_dump_printed) {
+		dev_err(sdev->dev, "------------[ DSP dump start ]------------\n");
 		sof_ops(sdev)->dbg_dump(sdev, flags);
+		dev_err(sdev->dev, "------------[ DSP dump end ]------------\n");
 		sdev->dbg_dump_printed = true;
 	}
 }
@@ -252,7 +254,9 @@ static inline void snd_sof_dsp_dbg_dump(struct snd_sof_dev *sdev, u32 flags)
 static inline void snd_sof_ipc_dump(struct snd_sof_dev *sdev)
 {
 	if (sof_ops(sdev)->ipc_dump  && !sdev->ipc_dump_printed) {
+		dev_err(sdev->dev, "------------[ IPC dump start ]------------\n");
 		sof_ops(sdev)->ipc_dump(sdev);
+		dev_err(sdev->dev, "------------[ IPC dump end ]------------\n");
 		sdev->ipc_dump_printed = true;
 	}
 }
