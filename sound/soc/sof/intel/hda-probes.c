@@ -3,14 +3,19 @@
 // This file is provided under a dual BSD/GPLv2 license.  When using or
 // redistributing this file, you may do so under either license.
 //
-// Copyright(c) 2019-2020 Intel Corporation. All rights reserved.
+// Copyright(c) 2019-2021 Intel Corporation. All rights reserved.
 //
 // Author: Cezary Rojewski <cezary.rojewski@intel.com>
+// Converted to SOF client:
+//  Ranjani Sridharan <ranjani.sridharan@linux.intel.com>
+//  Peter Ujfalusi <peter.ujfalusi@linux.intel.com>
 //
 
 #include <sound/hdaudio_ext.h>
 #include <sound/soc.h>
 #include "../sof-priv.h"
+#include "../sof-client-probes.h"
+#include "../sof-client.h"
 #include "hda.h"
 
 static inline struct hdac_ext_stream *
@@ -19,10 +24,10 @@ hda_compr_get_stream(struct snd_compr_stream *cstream)
 	return cstream->runtime->private_data;
 }
 
-int hda_probe_compr_assign(struct snd_sof_dev *sdev,
-			   struct snd_compr_stream *cstream,
-			   struct snd_soc_dai *dai)
+static int hda_probes_compr_assign(struct snd_compr_stream *cstream,
+				   struct snd_soc_dai *dai, void *host_data)
 {
+	struct snd_sof_dev *sdev = host_data;
 	struct hdac_ext_stream *stream;
 
 	stream = hda_dsp_stream_get(sdev, cstream->direction, 0);
@@ -36,11 +41,11 @@ int hda_probe_compr_assign(struct snd_sof_dev *sdev,
 	return hdac_stream(stream)->stream_tag;
 }
 
-int hda_probe_compr_free(struct snd_sof_dev *sdev,
-			 struct snd_compr_stream *cstream,
-			 struct snd_soc_dai *dai)
+static int hda_probes_compr_free(struct snd_compr_stream *cstream,
+				 struct snd_soc_dai *dai, void *host_data)
 {
 	struct hdac_ext_stream *stream = hda_compr_get_stream(cstream);
+	struct snd_sof_dev *sdev = host_data;
 	int ret;
 
 	ret = hda_dsp_stream_put(sdev, cstream->direction,
@@ -56,13 +61,13 @@ int hda_probe_compr_free(struct snd_sof_dev *sdev,
 	return 0;
 }
 
-int hda_probe_compr_set_params(struct snd_sof_dev *sdev,
-			       struct snd_compr_stream *cstream,
-			       struct snd_compr_params *params,
-			       struct snd_soc_dai *dai)
+static int hda_probes_compr_set_params(struct snd_compr_stream *cstream,
+				       struct snd_compr_params *params,
+				       struct snd_soc_dai *dai, void *host_data)
 {
 	struct hdac_ext_stream *stream = hda_compr_get_stream(cstream);
 	struct hdac_stream *hstream = hdac_stream(stream);
+	struct snd_sof_dev *sdev = host_data;
 	struct snd_dma_buffer *dmab;
 	u32 bits, rate;
 	int bps, ret;
@@ -89,19 +94,18 @@ int hda_probe_compr_set_params(struct snd_sof_dev *sdev,
 	return 0;
 }
 
-int hda_probe_compr_trigger(struct snd_sof_dev *sdev,
-			    struct snd_compr_stream *cstream, int cmd,
-			    struct snd_soc_dai *dai)
+static int hda_probes_compr_trigger(struct snd_compr_stream *cstream, int cmd,
+				    struct snd_soc_dai *dai, void *host_data)
 {
 	struct hdac_ext_stream *stream = hda_compr_get_stream(cstream);
+	struct snd_sof_dev *sdev = host_data;
 
 	return hda_dsp_stream_trigger(sdev, stream, cmd);
 }
 
-int hda_probe_compr_pointer(struct snd_sof_dev *sdev,
-			    struct snd_compr_stream *cstream,
-			    struct snd_compr_tstamp *tstamp,
-			    struct snd_soc_dai *dai)
+static int hda_probes_compr_pointer(struct snd_compr_stream *cstream,
+				    struct snd_compr_tstamp *tstamp,
+				    struct snd_soc_dai *dai, void *host_data)
 {
 	struct hdac_ext_stream *stream = hda_compr_get_stream(cstream);
 	struct snd_soc_pcm_stream *pstream;
@@ -112,3 +116,31 @@ int hda_probe_compr_pointer(struct snd_sof_dev *sdev,
 
 	return 0;
 }
+
+/* SOF client implementation */
+static const struct sof_probes_host_side_ops hda_probes_ops = {
+	.assign = hda_probes_compr_assign,
+	.free = hda_probes_compr_free,
+	.set_params = hda_probes_compr_set_params,
+	.trigger = hda_probes_compr_trigger,
+	.pointer = hda_probes_compr_pointer,
+};
+
+static struct sof_probes_pdata hda_probes_pdata = {
+	.ops = &hda_probes_ops,
+};
+
+int hda_probes_register(struct snd_sof_dev *sdev)
+{
+	hda_probes_pdata.host_data = sdev;
+
+	return sof_client_dev_register(sdev, "hda-probes", 0, &hda_probes_pdata,
+				       sizeof(hda_probes_pdata));
+}
+
+void hda_probes_unregister(struct snd_sof_dev *sdev)
+{
+	sof_client_dev_unregister(sdev, "hda-probes", 0);
+}
+
+MODULE_IMPORT_NS(SND_SOC_SOF_CLIENT);
