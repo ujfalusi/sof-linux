@@ -775,18 +775,94 @@ static void sof_probes_client_remove(struct auxiliary_device *auxdev)
 	debugfs_remove_recursive(priv->dfs_root);
 }
 
+static int sof_probes_client_resume(struct auxiliary_device *auxdev)
+{
+	pr_info("%s: ENTER\n", __func__);
+
+	return 0;
+}
+
+static int sof_probes_client_suspend(struct auxiliary_device *auxdev,
+				     pm_message_t state)
+{
+	pr_info("%s: ENTER\n", __func__);
+
+	return 0;
+}
+
 static const struct auxiliary_device_id sof_probes_client_id_table[] = {
 	{ .name = "snd_sof.hda-probes", },
 	{},
 };
 MODULE_DEVICE_TABLE(auxiliary, sof_probes_client_id_table);
 
+static int sof_probes_pm_runtime_suspend(struct device *dev)
+{
+	pr_info("%s: ENTER\n", __func__);
+
+	return 0;
+}
+
+static int sof_probes_pm_runtime_idle(struct device *dev)
+{
+	pr_info("%s: ENTER\n", __func__);
+
+	return 0;
+}
+
+static int sof_probes_pm_runtime_resume(struct device *dev)
+{
+	pr_info("%s: ENTER\n", __func__);
+
+	return 0;
+}
+
+static int sof_probes_pm_resume(struct device *dev)
+{
+	pr_info("%s: ENTER\n", __func__);
+
+	return 0;
+}
+
+static int sof_probes_pm_suspend(struct device *dev)
+{
+	pr_info("%s: ENTER\n", __func__);
+
+	return 0;
+}
+
+static int sof_probes_pm_prepare(struct device *dev)
+{
+	pr_info("%s: ENTER\n", __func__);
+
+	return 0;
+}
+
+static void sof_probes_pm_complete(struct device *dev)
+{
+	pr_info("%s: ENTER\n", __func__);
+}
+
+static const struct dev_pm_ops sof_probes_pm = {
+	.prepare = sof_probes_pm_prepare,
+	.complete = sof_probes_pm_complete,
+	SET_SYSTEM_SLEEP_PM_OPS(sof_probes_pm_suspend, sof_probes_pm_resume)
+	SET_RUNTIME_PM_OPS(sof_probes_pm_runtime_suspend, sof_probes_pm_runtime_resume,
+			   sof_probes_pm_runtime_idle)
+};
+
 /* driver name will be set based on KBUILD_MODNAME */
 static struct auxiliary_driver sof_probes_client_drv = {
 	.probe = sof_probes_client_probe,
 	.remove = sof_probes_client_remove,
+	.suspend = sof_probes_client_suspend,
+	.resume = sof_probes_client_resume,
 
 	.id_table = sof_probes_client_id_table,
+
+	.driver = {
+		.pm = &sof_probes_pm,
+	},
 };
 
 module_auxiliary_driver(sof_probes_client_drv);

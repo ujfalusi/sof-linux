@@ -274,6 +274,8 @@ int snd_sof_dsp_power_down_notify(struct snd_sof_dev *sdev)
 
 int snd_sof_runtime_suspend(struct device *dev)
 {
+	pr_info("%s: ENTER\n", __func__);
+
 	return sof_suspend(dev, true);
 }
 EXPORT_SYMBOL(snd_sof_runtime_suspend);
@@ -282,24 +284,32 @@ int snd_sof_runtime_idle(struct device *dev)
 {
 	struct snd_sof_dev *sdev = dev_get_drvdata(dev);
 
+	pr_info("%s: ENTER\n", __func__);
+
 	return snd_sof_dsp_runtime_idle(sdev);
 }
 EXPORT_SYMBOL(snd_sof_runtime_idle);
 
 int snd_sof_runtime_resume(struct device *dev)
 {
+	pr_info("%s: ENTER\n", __func__);
+
 	return sof_resume(dev, true);
 }
 EXPORT_SYMBOL(snd_sof_runtime_resume);
 
 int snd_sof_resume(struct device *dev)
 {
+	pr_info("%s: ENTER\n", __func__);
+
 	return sof_resume(dev, false);
 }
 EXPORT_SYMBOL(snd_sof_resume);
 
 int snd_sof_suspend(struct device *dev)
 {
+	pr_info("%s: ENTER\n", __func__);
+
 	return sof_suspend(dev, false);
 }
 EXPORT_SYMBOL(snd_sof_suspend);
@@ -308,6 +318,8 @@ int snd_sof_prepare(struct device *dev)
 {
 	struct snd_sof_dev *sdev = dev_get_drvdata(dev);
 	const struct sof_dev_desc *desc = sdev->pdata->desc;
+
+	pr_info("%s: ENTER\n", __func__);
 
 	/* will suspend to S3 by default */
 	sdev->system_suspend_target = SOF_SUSPEND_S3;
@@ -327,6 +339,8 @@ EXPORT_SYMBOL(snd_sof_prepare);
 void snd_sof_complete(struct device *dev)
 {
 	struct snd_sof_dev *sdev = dev_get_drvdata(dev);
+
+	pr_info("%s: ENTER\n", __func__);
 
 	sdev->system_suspend_target = SOF_SUSPEND_NONE;
 }
