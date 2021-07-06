@@ -939,21 +939,6 @@ static void ipc3_comp_notification(struct snd_sof_dev *sdev, void *msg_buf)
 		tplg_ops->control->update(sdev, msg_buf);
 }
 
-static void ipc3_trace_message(struct snd_sof_dev *sdev, void *msg_buf)
-{
-	struct sof_ipc_cmd_hdr *hdr = msg_buf;
-	u32 msg_type = hdr->cmd & SOF_CMD_TYPE_MASK;
-
-	switch (msg_type) {
-	case SOF_IPC_TRACE_DMA_POSITION:
-		snd_sof_trace_update_pos(sdev, msg_buf);
-		break;
-	default:
-		dev_err(sdev->dev, "unhandled trace message %#x\n", msg_type);
-		break;
-	}
-}
-
 /* DSP firmware has sent host a message  */
 static void sof_ipc3_rx_msg(struct snd_sof_dev *sdev)
 {
@@ -997,6 +982,7 @@ static void sof_ipc3_rx_msg(struct snd_sof_dev *sdev)
 			wake_up(&sdev->boot_wait);
 		}
 		break;
+	case SOF_IPC_GLB_TRACE_MSG:
 	case SOF_IPC_GLB_COMPOUND:
 	case SOF_IPC_GLB_TPLG_MSG:
 	case SOF_IPC_GLB_PM_MSG:
@@ -1006,9 +992,6 @@ static void sof_ipc3_rx_msg(struct snd_sof_dev *sdev)
 		break;
 	case SOF_IPC_GLB_STREAM_MSG:
 		rx_callback = ipc3_stream_message;
-		break;
-	case SOF_IPC_GLB_TRACE_MSG:
-		rx_callback = ipc3_trace_message;
 		break;
 	default:
 		dev_err(sdev->dev, "%s: Unknown DSP message: 0x%x\n", __func__, cmd);
