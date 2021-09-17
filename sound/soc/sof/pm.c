@@ -116,11 +116,18 @@ static int sof_resume(struct device *dev, bool runtime_resume)
 
 	/*
 	 * Nothing further to be done for platforms that support the low power
-	 * D0 substate.
+	 * D0 substate, but we need to re-enable the DMA trace if it was stopped
 	 */
 	if (!runtime_resume && sof_ops(sdev)->set_power_state &&
-	    old_state == SOF_DSP_PM_D0)
+	    old_state == SOF_DSP_PM_D0) {
+			ret = snd_sof_enable_trace(sdev);
+			if (ret < 0)
+				/* non fatal */
+				dev_warn(sdev->dev,
+					 "failed to enable trace after resume %d\n",
+					 ret);
 		return 0;
+	}
 
 	sdev->fw_state = SOF_FW_BOOT_PREPARE;
 
@@ -147,8 +154,8 @@ static int sof_resume(struct device *dev, bool runtime_resume)
 		return ret;
 	}
 
-	/* resume DMA trace, only need send ipc */
-	ret = snd_sof_init_trace_ipc(sdev);
+	/* Re-enable DMA trace */
+	ret = snd_sof_enable_trace(sdev);
 	if (ret < 0) {
 		/* non fatal */
 		dev_warn(sdev->dev,
@@ -204,14 +211,21 @@ static int sof_suspend(struct device *dev, bool runtime_suspend)
 
 	target_state = snd_sof_dsp_power_target(sdev);
 
+	/*
+	 * NOTE: it migh be simpler to release the dtrace here like:
+	 * snd_sof_release_trace(sdev, target_state == SOF_DSP_PM_D0 ? true : false);
+	 */
+
 	/* Skip to platform-specific suspend if DSP is entering D0 */
-	if (target_state == SOF_DSP_PM_D0)
+	if (target_state == SOF_DSP_PM_D0) {
+		snd_sof_release_trace(sdev, true);
 		goto suspend;
+	}
 
 	sof_tear_down_pipelines(sdev, false);
 
 	/* release trace */
-	snd_sof_release_trace(sdev);
+	snd_sof_release_trace(sdev, false);
 
 #if IS_ENABLED(CONFIG_SND_SOC_SOF_DEBUG_ENABLE_DEBUGFS_CACHE)
 	/* cache debugfs contents during runtime suspend */
