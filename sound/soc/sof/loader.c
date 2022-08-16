@@ -57,10 +57,6 @@ int snd_sof_load_firmware_raw(struct snd_sof_dev *sdev)
 		dev_err(sdev->dev, "error: firmware %s contains unsupported or invalid extended manifest: %d\n",
 			fw_filename, ret);
 	}
-
-	/* Platform code is still using the plat_data for firmware handling */
-	plat_data->fw = sdev->basefw.fw;
-	plat_data->fw_offset = sdev->basefw.payload_offset;
 err:
 	kfree(fw_filename);
 
@@ -70,7 +66,6 @@ EXPORT_SYMBOL(snd_sof_load_firmware_raw);
 
 int snd_sof_load_firmware_memcpy(struct snd_sof_dev *sdev)
 {
-	struct snd_sof_pdata *plat_data = sdev->pdata;
 	int ret;
 
 	ret = snd_sof_load_firmware_raw(sdev);
@@ -105,7 +100,6 @@ int snd_sof_load_firmware_memcpy(struct snd_sof_dev *sdev)
 error:
 	release_firmware(sdev->basefw.fw);
 	sdev->basefw.fw = NULL;
-	plat_data->fw = NULL;
 	return ret;
 
 }
@@ -191,6 +185,5 @@ void snd_sof_fw_unload(struct snd_sof_dev *sdev)
 	/* TODO: support module unloading at runtime */
 	release_firmware(sdev->basefw.fw);
 	sdev->basefw.fw = NULL;
-	sdev->pdata->fw = NULL;
 }
 EXPORT_SYMBOL(snd_sof_fw_unload);
