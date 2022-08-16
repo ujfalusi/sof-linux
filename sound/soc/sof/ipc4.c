@@ -8,6 +8,7 @@
 // Authors: Rander Wang <rander.wang@linux.intel.com>
 //	    Peter Ujfalusi <peter.ujfalusi@linux.intel.com>
 //
+#include <linux/firmware.h>
 #include <sound/sof/header.h>
 #include <sound/sof/ipc4/header.h>
 #include "sof-priv.h"
@@ -656,7 +657,35 @@ static const struct sof_ipc_pm_ops ipc4_pm_ops = {
 	.set_core_state = sof_ipc4_set_core_state,
 };
 
+static int sof_ipc4_init(struct snd_sof_dev *sdev)
+{
+	struct sof_ipc4_fw_data *ipc4_data = sdev->private;
+
+	idr_init(&ipc4_data->fw_lib_idr);
+
+	return 0;
+}
+
+static void sof_ipc4_fini(struct snd_sof_dev *sdev)
+{
+	struct sof_ipc4_fw_data *ipc4_data = sdev->private;
+	struct sof_ipc4_fw_library *fw_lib;
+	int id;
+
+	idr_for_each_entry(&ipc4_data->fw_lib_idr, fw_lib, id) {
+		/* Do not release the basefw library */
+		if (id != 0)
+			release_firmware(fw_lib->sof_fw.fw);
+
+		fw_lib->sof_fw.fw = NULL;
+	}
+
+	idr_destroy(&ipc4_data->fw_lib_idr);
+}
+
 const struct sof_ipc_ops ipc4_ops = {
+	.init = sof_ipc4_init,
+	.fini = sof_ipc4_fini,
 	.tx_msg = sof_ipc4_tx_msg,
 	.rx_msg = sof_ipc4_rx_msg,
 	.set_get_data = sof_ipc4_set_get_data,
