@@ -29,6 +29,9 @@ static struct sof_dev_desc skl_desc = {
 	.default_fw_path = {
 		[SOF_INTEL_IPC4] = "intel/avs/skl",
 	},
+	.default_lib_path = {
+		[SOF_INTEL_IPC4] = "intel/sof-lib/skl",
+	},
 	.default_tplg_path = {
 		[SOF_INTEL_IPC4] = "intel/avs-tplg",
 	},
@@ -51,6 +54,9 @@ static struct sof_dev_desc kbl_desc = {
 	.ipc_default		= SOF_INTEL_IPC4,
 	.default_fw_path = {
 		[SOF_INTEL_IPC4] = "intel/avs/kbl",
+	},
+	.default_lib_path = {
+		[SOF_INTEL_IPC4] = "intel/sof-lib/kbl",
 	},
 	.default_tplg_path = {
 		[SOF_INTEL_IPC4] = "intel/avs-tplg",
