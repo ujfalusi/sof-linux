@@ -48,6 +48,7 @@ struct sof_ipc4_fw_module {
  */
 struct sof_ipc4_fw_library {
 	struct sof_firmware sof_fw;
+	const char *name;
 	u32 id;
 	int num_modules;
 	struct sof_ipc4_fw_module *modules;

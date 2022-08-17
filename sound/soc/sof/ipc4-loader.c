@@ -14,6 +14,8 @@
 #include "sof-priv.h"
 #include "ops.h"
 
+#define SOF_IPC4_MODULE_ID_STRIDE	0x1000
+
 static size_t sof_ipc4_fw_parse_ext_man(struct snd_sof_dev *sdev,
 					struct sof_ipc4_fw_library *fw_lib)
 {
@@ -60,17 +62,29 @@ static size_t sof_ipc4_fw_parse_ext_man(struct snd_sof_dev *sdev,
 		return -EINVAL;
 	}
 
-	dev_info(sdev->dev, "Loaded firmware version: %u.%u.%u.%u\n",
-		 fw_header->major_version, fw_header->minor_version,
-		 fw_header->hotfix_version, fw_header->build_version);
-	dev_dbg(sdev->dev, "Firmware name: %s, header length: %u, module count: %u\n",
-		fw_header->name, fw_header->len, fw_header->num_module_entries);
+	/* The basefw is loaded first, use different prints for basefw and libraries */
+	if (idr_is_empty(&ipc4_data->fw_lib_idr)) {
+		dev_info(sdev->dev, "Loaded firmware version: %u.%u.%u.%u\n",
+			 fw_header->major_version, fw_header->minor_version,
+			 fw_header->hotfix_version, fw_header->build_version);
+		dev_dbg(sdev->dev,
+			"Firmware name: %s, header length: %u, module count: %u\n",
+			fw_header->name, fw_header->len, fw_header->num_module_entries);
+	} else {
+		dev_info(sdev->dev, "Loaded library version: %u.%u.%u.%u\n",
+			 fw_header->major_version, fw_header->minor_version,
+			 fw_header->hotfix_version, fw_header->build_version);
+		dev_dbg(sdev->dev,
+			"Library name: %s, header length: %u, module count: %u\n",
+			fw_header->name, fw_header->len, fw_header->num_module_entries);
+	}
 
 	fw_lib->modules = devm_kmalloc_array(sdev->dev, fw_header->num_module_entries,
 					     sizeof(*fw_module), GFP_KERNEL);
 	if (!fw_lib->modules)
 		return -ENOMEM;
 
+	fw_lib->name = fw_header->name;
 	fw_lib->num_modules = fw_header->num_module_entries;
 	fw_module = fw_lib->modules;
 
@@ -151,14 +165,99 @@ static size_t sof_ipc4_fw_parse_basefw_ext_man(struct snd_sof_dev *sdev)
 	return payload_offset;
 }
 
+static int sof_ipc4_load_library_by_uuid(struct snd_sof_dev *sdev,
+					 const guid_t *uuid)
+{
+	struct sof_ipc4_fw_data *ipc4_data = sdev->private;
+	struct sof_ipc4_fw_library *fw_lib;
+	const char *fw_filename;
+	size_t payload_offset;
+	int id, ret, i;
+
+	if (!sdev->pdata->fw_lib_prefix) {
+		dev_err(sdev->dev,
+			"Library loading is not supported due to not set library path\n");
+		return -EINVAL;
+	}
+
+	if (!ipc4_data->load_library) {
+		dev_err(sdev->dev, "Library loading is not supported on this platform\n");
+		return -EOPNOTSUPP;
+	}
+
+	fw_lib = devm_kzalloc(sdev->dev, sizeof(*fw_lib), GFP_KERNEL);
+	if (!fw_lib)
+		return -ENOMEM;
+
+	fw_filename = kasprintf(GFP_KERNEL, "%s/%pUL.bin",
+				sdev->pdata->fw_lib_prefix, uuid);
+	if (!fw_filename)
+		return -ENOMEM;
+
+	ret = request_firmware(&fw_lib->sof_fw.fw, fw_filename, sdev->dev);
+	if (ret < 0) {
+		dev_err(sdev->dev, "Library file '%s' is missing\n", fw_filename);
+		goto free;
+	} else {
+		dev_dbg(sdev->dev, "Library file '%s' loaded\n", fw_filename);
+	}
+
+	payload_offset = sof_ipc4_fw_parse_ext_man(sdev, fw_lib);
+	if (payload_offset > 0) {
+		fw_lib->sof_fw.payload_offset = payload_offset;
+		id = idr_alloc(&ipc4_data->fw_lib_idr, fw_lib, 0, 0, GFP_KERNEL);
+		if (id < 0) {
+			dev_err(sdev->dev, "Incorrect ID received for basefw: %d\n", id);
+			ret = -EINVAL;
+			goto release;
+		}
+
+		fw_lib->id = id;
+	}
+
+	/* Fix up the module ID numbers within the library */
+	for (i = 0; i < fw_lib->num_modules; i++)
+		fw_lib->modules[i].man4_module_entry.id += (SOF_IPC4_MODULE_ID_STRIDE * id);
+
+	kfree(fw_filename);
+
+	return ipc4_data->load_library(sdev, fw_lib, false);
+
+release:
+	release_firmware(fw_lib->sof_fw.fw);
+	fw_lib->sof_fw.fw = NULL;
+free:
+	kfree(fw_filename);
+	return ret;
+}
+
 struct sof_ipc4_fw_module *sof_ipc4_find_module_by_uuid(struct snd_sof_dev *sdev,
 							const guid_t *uuid)
 {
 	struct sof_ipc4_fw_data *ipc4_data = sdev->private;
 	struct sof_ipc4_fw_library *fw_lib;
-	int i, id;
+	int i, id, ret;
+
+	if (guid_is_null(uuid))
+		return NULL;
 
 	idr_for_each_entry(&ipc4_data->fw_lib_idr, fw_lib, id) {
+		for (i = 0; i < fw_lib->num_modules; i++) {
+			if (guid_equal(uuid, &fw_lib->modules[i].man4_module_entry.uuid))
+				return &fw_lib->modules[i];
+		}
+	}
+
+	/*
+	 * The module can not be found within the available libraries, try to
+	 * load it as a library
+	 */
+	ret = sof_ipc4_load_library_by_uuid(sdev, uuid);
+	if (ret)
+		return NULL;
+
+	/* Look for the module in the newly loaded library, it should be available now */
+	idr_for_each_entry_continue(&ipc4_data->fw_lib_idr, fw_lib, id) {
 		for (i = 0; i < fw_lib->num_modules; i++) {
 			if (guid_equal(uuid, &fw_lib->modules[i].man4_module_entry.uuid))
 				return &fw_lib->modules[i];
@@ -255,8 +354,39 @@ out:
 	return ret;
 }
 
+static int sof_ipc4_reload_fw_addons(struct snd_sof_dev *sdev)
+{
+	struct sof_ipc4_fw_data *ipc4_data = sdev->private;
+	struct sof_ipc4_fw_library *fw_lib;
+	int ret = 0;
+	int id;
+
+	/*
+	 * It is not an error if the callback is not set at this point since the
+	 * loaded topology did not needed external libraries to be loaded
+	 */
+	if (!ipc4_data->load_library)
+		return 0;
+
+	idr_for_each_entry(&ipc4_data->fw_lib_idr, fw_lib, id) {
+		/* Skip basefw library */
+		if (id == 0)
+			continue;
+
+		ret = ipc4_data->load_library(sdev, fw_lib, true);
+		if (ret) {
+			dev_err(sdev->dev, "%s: Failed to reload library: %s, %d\n",
+				__func__, fw_lib->name, ret);
+			break;
+		}
+	}
+
+	return ret;
+}
+
 const struct sof_ipc_fw_loader_ops ipc4_loader_ops = {
 	.validate = sof_ipc4_validate_firmware,
 	.parse_ext_manifest = sof_ipc4_fw_parse_basefw_ext_man,
 	.query_fw_configuration = sof_ipc4_query_fw_configuration,
+	.reload_fw_addons = sof_ipc4_reload_fw_addons,
 };
