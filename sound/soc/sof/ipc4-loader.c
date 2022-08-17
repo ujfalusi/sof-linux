@@ -151,6 +151,23 @@ static size_t sof_ipc4_fw_parse_basefw_ext_man(struct snd_sof_dev *sdev)
 	return payload_offset;
 }
 
+struct sof_ipc4_fw_module *sof_ipc4_find_module_by_uuid(struct snd_sof_dev *sdev,
+							const guid_t *uuid)
+{
+	struct sof_ipc4_fw_data *ipc4_data = sdev->private;
+	struct sof_ipc4_fw_library *fw_lib;
+	int i, id;
+
+	idr_for_each_entry(&ipc4_data->fw_lib_idr, fw_lib, id) {
+		for (i = 0; i < fw_lib->num_modules; i++) {
+			if (guid_equal(uuid, &fw_lib->modules[i].man4_module_entry.uuid))
+				return &fw_lib->modules[i];
+		}
+	}
+
+	return NULL;
+}
+
 static int sof_ipc4_validate_firmware(struct snd_sof_dev *sdev)
 {
 	struct sof_ipc4_fw_data *ipc4_data = sdev->private;
