@@ -285,12 +285,27 @@ static void sof_ipc4_widget_free_comp(struct snd_sof_widget *swidget)
 	kfree(swidget->private);
 }
 
+static void sof_ipc4_load_a_hack(struct snd_sof_dev *sdev)
+{
+	guid_t uuid = GUID_INIT(0x88881111, 0x2222, 0x3333,
+				0x44, 0x44, 0x55, 0x55, 0x66, 0x66, 0x77, 0x77);
+	struct sof_ipc4_fw_module *fw_module;
+
+	fw_module = sof_ipc4_find_module_by_uuid(sdev, &uuid);
+	if (fw_module)
+		pr_warn("%s: got module for UUID %pUL\n", __func__, &uuid);
+	else
+		pr_warn("%s: no module for UUID %pUL\n", __func__, &uuid);
+}
+
 static int sof_ipc4_widget_set_module_info(struct snd_sof_widget *swidget)
 {
 	struct snd_soc_component *scomp = swidget->scomp;
 	struct snd_sof_dev *sdev = snd_soc_component_get_drvdata(scomp);
 
 	swidget->module_info = sof_ipc4_find_module_by_uuid(sdev, &swidget->uuid);
+
+	sof_ipc4_load_a_hack(sdev);
 
 	if (swidget->module_info)
 		return 0;
