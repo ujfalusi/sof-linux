@@ -175,6 +175,8 @@ int snd_sof_run_firmware(struct snd_sof_dev *sdev)
 
 	if (sdev->first_boot && sdev->ipc->ops->fw_loader->query_fw_configuration)
 		return sdev->ipc->ops->fw_loader->query_fw_configuration(sdev);
+	else if (!sdev->first_boot && sdev->ipc->ops->fw_loader->reload_fw_addons)
+		return sdev->ipc->ops->fw_loader->reload_fw_addons(sdev);
 
 	return 0;
 }

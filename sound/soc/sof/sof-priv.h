@@ -425,12 +425,15 @@ struct sof_ipc_pm_ops {
  * @query_fw_configuration: Optional function pointer to query information and
  *			configuration from the booted firmware.
  *			Executed after the first successful firmware boot.
+ * @reload_fw_addons:	Optional function pointer to reload firmware components
+ *			after the base firmware has been booted up
  */
 struct sof_ipc_fw_loader_ops {
 	int (*validate)(struct snd_sof_dev *sdev);
 	size_t (*parse_ext_manifest)(struct snd_sof_dev *sdev);
 	int (*load_fw_to_dsp)(struct snd_sof_dev *sdev);
 	int (*query_fw_configuration)(struct snd_sof_dev *sdev);
+	int (*reload_fw_addons)(struct snd_sof_dev *sof_dev);
 };
 
 struct sof_ipc_tplg_ops;
