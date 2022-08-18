@@ -72,6 +72,9 @@ int sof_skl_ops_init(struct snd_sof_dev *sdev)
 
 	ipc4_data->mtrace_type = SOF_IPC4_MTRACE_INTEL_CAVS_1_5;
 
+	/* External library loading support */
+	ipc4_data->load_library = hda_dsp_ipc4_load_library;
+
 	sof_skl_ops.get_window_offset = skl_dsp_ipc_get_window_offset;
 	sof_skl_ops.get_mailbox_offset = skl_dsp_ipc_get_mailbox_offset;
 
