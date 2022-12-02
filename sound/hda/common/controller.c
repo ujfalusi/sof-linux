@@ -716,6 +716,7 @@ int snd_hda_attach_pcm_stream(struct hda_bus *_bus, struct hda_codec *codec,
 			  &pcm);
 	if (err < 0)
 		return err;
+	pr_warn("[peter] %s: ENTER (%s)\n", __func__, cpcm->name);
 	strscpy(pcm->name, cpcm->name, sizeof(pcm->name));
 	apcm = kzalloc_obj(*apcm);
 	if (apcm == NULL) {

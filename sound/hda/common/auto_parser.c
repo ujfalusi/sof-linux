@@ -664,6 +664,7 @@ static int fill_audio_out_name(struct hda_codec *codec, hda_nid_t nid,
 	int attr = snd_hda_get_input_pin_attr(def_conf);
 	const char *pfx, *sfx = "";
 
+	pr_warn("[peter] %s: ENTER (name = %s)\n", __func__, name);
 	/* handle as a speaker if it's a fixed line-out */
 	if (!strcmp(name, "Line Out") && attr == INPUT_PIN_ATTR_INT)
 		name = "Speaker";

@@ -2757,6 +2757,9 @@ static int snd_pcm_hw_constraints_complete(struct snd_pcm_substream *substream)
 	/* FIXME: this belong to lowlevel */
 	snd_pcm_hw_constraint_integer(runtime, SNDRV_PCM_HW_PARAM_PERIOD_SIZE);
 
+	pr_warn("[peter] %s: channels: %d-%d, formats: %#llx, rates: %#x\n", __func__,
+		hw->channels_min, hw->channels_max, hw->formats, hw->rates);
+
 	return 0;
 }
 

@@ -955,6 +955,7 @@ static void plugged_cb(struct device *dev, bool plugged)
 
 	if (plugged) {
 		if (hcp->hcd.ops->get_eld) {
+			pr_warn("[peter]: %s plugged\n", __func__);
 			hcp->hcd.ops->get_eld(dev->parent, hcp->hcd.data,
 					    hcp->eld, sizeof(hcp->eld));
 			ret = snd_parse_eld(dev, &hcp->eld_parsed,

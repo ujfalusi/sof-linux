@@ -20,6 +20,37 @@
 #include "sof-utils.h"
 #include "ops.h"
 
+static void peter_debug_params(struct snd_pcm_substream *fe_substream, const char *func)
+{
+	struct snd_soc_pcm_runtime *fe_rtd = snd_soc_substream_to_rtd(fe_substream);
+	struct snd_pcm_runtime *fe_runtime = fe_substream->runtime;
+	struct snd_pcm_substream *be_substream;
+	struct snd_pcm_runtime *be_runtime;
+	struct snd_soc_pcm_runtime *be_rtd;
+	struct snd_soc_dpcm *dpcm;
+
+	for_each_dpcm_be(fe_rtd, fe_substream->stream, dpcm) {
+		if (dpcm->fe != fe_rtd)
+			continue;
+
+		be_rtd = dpcm->be;
+	}
+
+	if (!be_rtd)
+		return;
+
+	be_substream = snd_soc_dpcm_get_substream(be_rtd, fe_substream->stream);
+	be_runtime = be_substream->runtime;
+
+	if (be_substream == fe_substream)
+		pr_err("[peter] %s: be/fe substream is the same!!!!\n", func);
+
+	pr_warn("[peter] %s: FE: channels: %d-%d, formats: %#llx, rates: %#x\n", func,
+		fe_runtime->hw.channels_min, fe_runtime->hw.channels_max, fe_runtime->hw.formats, fe_runtime->hw.rates);
+	pr_warn("[peter] %s: BE: channels: %d-%d, formats: %#llx, rates: %#x\n", func,
+		be_runtime->hw.channels_min, be_runtime->hw.channels_max, be_runtime->hw.formats, be_runtime->hw.rates);
+}
+
 /*
  * sof pcm period elapse work
  */
@@ -202,6 +233,8 @@ static int sof_pcm_hw_params(struct snd_soc_component *component,
 
 	/* save pcm hw_params */
 	memcpy(&spcm->params[substream->stream], params, sizeof(*params));
+
+	peter_debug_params(substream, __func__);
 
 	return 0;
 }
@@ -592,6 +625,8 @@ static int sof_pcm_open(struct snd_soc_component *component,
 	spcm_dbg(spcm, substream->stream, "period count min %d, max %d\n",
 		 runtime->hw.periods_min, runtime->hw.periods_max);
 	spcm_dbg(spcm, substream->stream, "buffer bytes max %zd\n", runtime->hw.buffer_bytes_max);
+
+	peter_debug_params(substream, __func__);
 
 	return 0;
 }
