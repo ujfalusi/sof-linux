@@ -41,6 +41,8 @@ static const struct sof_dev_desc lnl_desc = {
 	.ipc_default		= SOF_IPC_TYPE_4,
 	.dspless_mode_supported	= true,
 	.on_demand_dsp_boot	= true,
+	.vendor			= "intel",
+	.platform		= "lnl",
 	.default_fw_path = {
 		[SOF_IPC_TYPE_4] = "intel/sof-ipc4/lnl",
 	},
