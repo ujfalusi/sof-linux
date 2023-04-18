@@ -39,6 +39,8 @@ static const struct sof_dev_desc ptl_desc = {
 	.ipc_default		= SOF_IPC_TYPE_4,
 	.dspless_mode_supported	= true,
 	.on_demand_dsp_boot	= true,
+	.vendor			= "intel",
+	.platform		= "ptl",
 	.default_fw_path = {
 		[SOF_IPC_TYPE_4] = "intel/sof-ipc4/ptl",
 	},
@@ -69,6 +71,8 @@ static const struct sof_dev_desc wcl_desc = {
 	.ipc_default		= SOF_IPC_TYPE_4,
 	.dspless_mode_supported	= true,
 	.on_demand_dsp_boot	= true,
+	.vendor			= "intel",
+	.platform		= "wcl",
 	.default_fw_path = {
 		[SOF_IPC_TYPE_4] = "intel/sof-ipc4/wcl",
 	},
