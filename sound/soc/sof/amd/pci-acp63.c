@@ -56,6 +56,8 @@ static const struct sof_dev_desc acp63_desc = {
 	.chip_info		= &acp63_chip_info,
 	.ipc_supported_mask     = BIT(SOF_IPC_TYPE_3),
 	.ipc_default            = SOF_IPC_TYPE_3,
+	.vendor			= "amd",
+	.platform		= "acp_6_3",
 	.default_fw_path	= {
 		[SOF_IPC_TYPE_3] = "amd/sof",
 	},
