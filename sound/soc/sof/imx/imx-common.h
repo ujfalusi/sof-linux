@@ -36,15 +36,6 @@ static struct sof_dev_desc sof_of_##mach_name##_desc = {		\
 	.ipc_default = SOF_IPC_TYPE_3,					\
 	.vendor = "imx",						\
 	.platform = #mach_name,						\
-	.default_fw_path = {						\
-		[SOF_IPC_TYPE_3] = "imx/sof",				\
-	},								\
-	.default_tplg_path = {						\
-		[SOF_IPC_TYPE_3] = "imx/sof-tplg",			\
-	},								\
-	.default_fw_filename = {					\
-		[SOF_IPC_TYPE_3] = "sof-" #mach_name ".ri",		\
-	},								\
 	.ops = mach_ops,						\
 	.ops_init = mach_ops_init,					\
 }
