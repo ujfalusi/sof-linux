@@ -34,6 +34,8 @@ static struct sof_dev_desc sof_of_##mach_name##_desc = {		\
 	.chip_info = mach_chip_info,					\
 	.ipc_supported_mask = BIT(SOF_IPC_TYPE_3),			\
 	.ipc_default = SOF_IPC_TYPE_3,					\
+	.vendor = "imx",						\
+	.platform = #mach_name,						\
 	.default_fw_path = {						\
 		[SOF_IPC_TYPE_3] = "imx/sof",				\
 	},								\
