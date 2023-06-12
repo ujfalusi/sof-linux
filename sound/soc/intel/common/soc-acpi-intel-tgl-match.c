@@ -758,6 +758,16 @@ struct snd_soc_acpi_mach snd_soc_acpi_intel_tgl_sdw_machines[] = {
 		},
 	},
 	{
+		.link_mask = 0x1, /* mockup headset on link 0 */
+		.links = sdw_mockup_headset_alone,
+		.drv_name = "sof_sdw",
+		.sof_tplg_filename = "sof-tgl-rt711.tplg",
+		.mach_params = {
+			.link_mask = 0x1, /* rt711 on link 0 */
+			.links = sdw_mockup_headset_alone,
+		},
+	},
+	{
 		.link_mask = 0xF, /* 4 active links required */
 		.links = tgl_712_only,
 		.drv_name = "sof_sdw",
