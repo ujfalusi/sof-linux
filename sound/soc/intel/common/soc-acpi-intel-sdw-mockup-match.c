@@ -206,3 +206,12 @@ const struct snd_soc_acpi_link_adr sdw_mockup_multi_func[] = {
 	},
 	{}
 };
+
+const struct snd_soc_acpi_link_adr sdw_mockup_headset_alone[] = {
+	{
+		.mask = BIT(0),
+		.num_adr = ARRAY_SIZE(sdw_mockup_headset_0_adr),
+		.adr_d = sdw_mockup_headset_0_adr,
+	},
+	{}
+};
