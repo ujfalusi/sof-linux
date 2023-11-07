@@ -1254,13 +1254,21 @@ int snd_soc_pcm_component_pm_runtime_get(struct snd_soc_pcm_runtime *rtd,
 	int i;
 
 	for_each_rtd_components(rtd, i, component) {
-		int ret = pm_runtime_get_sync(component->dev);
+		int ret;
+
+		dev_dbg(component->dev,
+			"ASoC: before pm_runtime_get_sync() for %s\n", component->name);
+
+		ret = pm_runtime_get_sync(component->dev);
 		if (ret < 0 && ret != -EACCES) {
 			pm_runtime_put_noidle(component->dev);
 			return soc_component_ret(component, ret);
 		}
 		/* mark stream if succeeded */
 		soc_component_mark_push(component, stream, pm);
+
+		dev_dbg(component->dev,
+			"ASoC: after pm_runtime_get_sync() for %s\n", component->name);
 	}
 
 	return 0;
@@ -1276,11 +1284,17 @@ void snd_soc_pcm_component_pm_runtime_put(struct snd_soc_pcm_runtime *rtd,
 		if (rollback && !soc_component_mark_match(component, stream, pm))
 			continue;
 
+		dev_dbg(component->dev,
+			"ASoC: before pm_runtime_put_autosuspend() for %s\n", component->name);
+
 		pm_runtime_mark_last_busy(component->dev);
 		pm_runtime_put_autosuspend(component->dev);
 
 		/* remove marked stream */
 		soc_component_mark_pop(component, stream, pm);
+
+		dev_dbg(component->dev,
+			"ASoC: after pm_runtime_put_autosuspend() for %s\n", component->name);
 	}
 }
 
