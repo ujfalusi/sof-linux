@@ -2884,14 +2884,21 @@ static unsigned int hda_call_codec_suspend(struct hda_codec *codec)
 {
 	unsigned int state;
 
+	codec_dbg(codec, "%s: ENTER\n", __func__);
 	snd_hdac_enter_pm(&codec->core);
+	codec_dbg(codec, "%s: 1\n", __func__);
 	if (codec->patch_ops.suspend)
 		codec->patch_ops.suspend(codec);
+	codec_dbg(codec, "%s: 2\n", __func__);
 	if (!codec->no_stream_clean_at_suspend)
 		hda_cleanup_all_streams(codec);
+	codec_dbg(codec, "%s: 3\n", __func__);
 	state = hda_set_power_state(codec, AC_PWRST_D3);
+	codec_dbg(codec, "%s: 4\n", __func__);
 	update_power_acct(codec, true);
+	codec_dbg(codec, "%s: 5\n", __func__);
 	snd_hdac_leave_pm(&codec->core);
+	codec_dbg(codec, "%s: LEAVE\n", __func__);
 	return state;
 }
 
@@ -2900,6 +2907,7 @@ static unsigned int hda_call_codec_suspend(struct hda_codec *codec)
  */
 static void hda_call_codec_resume(struct hda_codec *codec)
 {
+	codec_dbg(codec, "%s: ENTER\n", __func__);
 	snd_hdac_enter_pm(&codec->core);
 	if (codec->core.regmap)
 		regcache_mark_dirty(codec->core.regmap);
@@ -2924,6 +2932,7 @@ static void hda_call_codec_resume(struct hda_codec *codec)
 		snd_hda_jack_report_sync(codec);
 	codec->core.dev.power.power_state = PMSG_ON;
 	snd_hdac_leave_pm(&codec->core);
+	codec_dbg(codec, "%s: LEAVE\n", __func__);
 }
 
 static int hda_codec_runtime_suspend(struct device *dev)
@@ -2935,8 +2944,10 @@ static int hda_codec_runtime_suspend(struct device *dev)
 	if (!codec->card)
 		return 0;
 
+	dev_dbg(dev, "%s: ENTER\n", __func__);
 	cancel_delayed_work_sync(&codec->jackpoll_work);
 
+	dev_dbg(dev, "%s: after jack\n", __func__);
 	state = hda_call_codec_suspend(codec);
 	if (codec->link_down_at_suspend ||
 	    (codec_has_clkstop(codec) && codec_has_epss(codec) &&
@@ -2948,6 +2959,7 @@ static int hda_codec_runtime_suspend(struct device *dev)
 		(dev->power.power_state.event != PM_EVENT_SUSPEND))
 		schedule_delayed_work(&codec->jackpoll_work,
 					codec->jackpoll_interval);
+	dev_dbg(dev, "%s: LEAVE\n", __func__);
 	return 0;
 }
 
@@ -2959,10 +2971,12 @@ static int hda_codec_runtime_resume(struct device *dev)
 	if (!codec->card)
 		return 0;
 
+	dev_dbg(dev, "%s: ENTER\n", __func__);
 	snd_hda_codec_display_power(codec, true);
 	snd_hdac_codec_link_up(&codec->core);
 	hda_call_codec_resume(codec);
 	pm_runtime_mark_last_busy(dev);
+	dev_dbg(dev, "%s: LEAVE\n", __func__);
 	return 0;
 }
 
