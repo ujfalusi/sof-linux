@@ -2790,6 +2790,7 @@ static unsigned int hda_set_power_state(struct hda_codec *codec,
 	unsigned int state;
 	int flags = 0;
 
+	codec_dbg(codec, "%s: ENTER (target: %d)\n", __func__, power_state);
 	/* this delay seems necessary to avoid click noise at power-down */
 	if (power_state == AC_PWRST_D3) {
 		if (codec->depop_delay < 0)
@@ -2801,24 +2802,32 @@ static unsigned int hda_set_power_state(struct hda_codec *codec,
 
 	/* repeat power states setting at most 10 times*/
 	for (count = 0; count < 10; count++) {
-		if (codec->patch_ops.set_power_state)
+		if (codec->patch_ops.set_power_state) {
+			codec_dbg(codec, "%s: 1 (count: %d) set_power_state\n",
+				  __func__, count);
 			codec->patch_ops.set_power_state(codec, fg,
 							 power_state);
-		else {
+		} else {
+			codec_dbg(codec, "%s: 1 (count: %d)\n", __func__, count);
 			state = power_state;
 			if (codec->power_filter)
 				state = codec->power_filter(codec, fg, state);
+			codec_dbg(codec, "%s: 2 (count: %d) (%d - %d)\n",
+				  __func__, count, state, power_state);
 			if (state == power_state || power_state != AC_PWRST_D3)
 				snd_hda_codec_read(codec, fg, flags,
 						   AC_VERB_SET_POWER_STATE,
 						   state);
+			codec_dbg(codec, "%s: 3 (count: %d)\n", __func__, count);
 			snd_hda_codec_set_power_to_all(codec, fg, power_state);
 		}
+		codec_dbg(codec, "%s: 4 (count: %d)\n", __func__, count);
 		state = snd_hda_sync_power_state(codec, fg, power_state);
 		if (!(state & AC_PWRST_ERROR))
 			break;
 	}
 
+	codec_dbg(codec, "%s: LEAVE (reached: %d)\n", __func__, state);
 	return state;
 }
 
