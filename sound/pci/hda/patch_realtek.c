@@ -172,7 +172,9 @@ static int alc_read_coefex_idx(struct hda_codec *codec, hda_nid_t nid,
 	unsigned int val;
 
 	coef_mutex_lock(codec);
+	codec_dbg(codec, "%s: ENTER (%#x)\n", __func__, coef_idx);
 	val = __alc_read_coefex_idx(codec, nid, coef_idx);
+	codec_dbg(codec, "%s: LEAVE (%#x: %#x)\n", __func__, coef_idx, val);
 	coef_mutex_unlock(codec);
 	return val;
 }
@@ -191,7 +193,9 @@ static void alc_write_coefex_idx(struct hda_codec *codec, hda_nid_t nid,
 				 unsigned int coef_idx, unsigned int coef_val)
 {
 	coef_mutex_lock(codec);
+	codec_dbg(codec, "%s: ENTER (%#x: %#x)\n", __func__, coef_idx, coef_val);
 	__alc_write_coefex_idx(codec, nid, coef_idx, coef_val);
+	codec_dbg(codec, "%s: LEAVE (%#x: %#x)\n", __func__, coef_idx, coef_val);
 	coef_mutex_unlock(codec);
 }
 
@@ -214,7 +218,9 @@ static void alc_update_coefex_idx(struct hda_codec *codec, hda_nid_t nid,
 				  unsigned int bits_set)
 {
 	coef_mutex_lock(codec);
+	codec_dbg(codec, "%s: ENTER (%#x: %#x|%#x)\n", __func__, coef_idx, mask, bits_set);
 	__alc_update_coefex_idx(codec, nid, coef_idx, mask, bits_set);
+	codec_dbg(codec, "%s: LEAVE (%#x: %#x|%#x)\n", __func__, coef_idx, mask, bits_set);
 	coef_mutex_unlock(codec);
 }
 
@@ -3259,6 +3265,7 @@ static void alc_disable_headset_jack_key(struct hda_codec *codec)
 	case 0x10ec0295:
 	case 0x10ec0289:
 	case 0x10ec0299:
+		codec_dbg(codec, "%s: ENTER (1st)\n", __func__);
 		alc_write_coef_idx(codec, 0x48, 0x0);
 		alc_update_coef_idx(codec, 0x49, 0x0045, 0x0);
 		alc_update_coef_idx(codec, 0x44, 0x0045 << 8, 0x0);
@@ -3268,8 +3275,12 @@ static void alc_disable_headset_jack_key(struct hda_codec *codec)
 	case 0x10ec0256:
 	case 0x10ec0257:
 	case 0x19e58326:
+		codec_dbg(codec, "%s: ENTER (2nd)\n", __func__);
 		alc_write_coef_idx(codec, 0x48, 0x0);
 		alc_update_coef_idx(codec, 0x49, 0x0045, 0x0);
+		break;
+	default:
+		codec_dbg(codec, "%s: ENTER (NOP)\n", __func__);
 		break;
 	}
 }
@@ -3289,6 +3300,7 @@ static void alc_enable_headset_jack_key(struct hda_codec *codec)
 	case 0x10ec0295:
 	case 0x10ec0289:
 	case 0x10ec0299:
+		codec_dbg(codec, "%s: ENTER (1st)\n", __func__);
 		alc_write_coef_idx(codec, 0x48, 0xd011);
 		alc_update_coef_idx(codec, 0x49, 0x007f, 0x0045);
 		alc_update_coef_idx(codec, 0x44, 0x007f << 8, 0x0045 << 8);
@@ -3298,8 +3310,12 @@ static void alc_enable_headset_jack_key(struct hda_codec *codec)
 	case 0x10ec0256:
 	case 0x10ec0257:
 	case 0x19e58326:
+		codec_dbg(codec, "%s: ENTER (2nd)\n", __func__);
 		alc_write_coef_idx(codec, 0x48, 0xd011);
 		alc_update_coef_idx(codec, 0x49, 0x007f, 0x0045);
+		break;
+	default:
+		codec_dbg(codec, "%s: ENTER (NOP)\n", __func__);
 		break;
 	}
 }
@@ -3310,6 +3326,7 @@ static void alc_fixup_headset_jack(struct hda_codec *codec,
 	struct alc_spec *spec = codec->spec;
 	hda_nid_t hp_pin;
 
+	codec_dbg(codec, "%s: ENTER (action: %d)\n", __func__, action);
 	switch (action) {
 	case HDA_FIXUP_ACT_PRE_PROBE:
 		spec->has_hs_key = 1;
@@ -3790,15 +3807,19 @@ static void alc225_shutup(struct hda_codec *codec)
 	hda_nid_t hp_pin = alc_get_hp_pin(spec);
 	bool hp1_pin_sense, hp2_pin_sense;
 
+	codec_dbg(codec, "%s: ENTER\n", __func__);
 	if (!hp_pin)
 		hp_pin = 0x21;
 
 	alc_disable_headset_jack_key(codec);
 	/* 3k pull low control for Headset jack. */
+	codec_dbg(codec, "%s: 1\n", __func__);
 	alc_update_coef_idx(codec, 0x4a, 0, 3 << 10);
 
+	codec_dbg(codec, "%s: 2\n", __func__);
 	hp1_pin_sense = snd_hda_jack_detect(codec, hp_pin);
 	hp2_pin_sense = snd_hda_jack_detect(codec, 0x16);
+	codec_dbg(codec, "%s: 3\n", __func__);
 
 	if (hp1_pin_sense || hp2_pin_sense)
 		msleep(2);
@@ -3823,8 +3844,11 @@ static void alc225_shutup(struct hda_codec *codec)
 	if (hp1_pin_sense || hp2_pin_sense || spec->ultra_low_power)
 		msleep(100);
 
+	codec_dbg(codec, "%s: 4\n", __func__);
 	alc_auto_setup_eapd(codec, false);
+	codec_dbg(codec, "%s: 5\n", __func__);
 	alc_shutup_pins(codec);
+	codec_dbg(codec, "%s: 6\n", __func__);
 	if (spec->ultra_low_power) {
 		msleep(50);
 		alc_update_coef_idx(codec, 0x08, 0x0f << 2, 0x0c << 2);
@@ -3833,9 +3857,12 @@ static void alc225_shutup(struct hda_codec *codec)
 		alc_update_coef_idx(codec, 0x4a, 3<<4, 2<<4);
 		msleep(30);
 	}
+	codec_dbg(codec, "%s: 7\n", __func__);
 
 	alc_update_coef_idx(codec, 0x4a, 3 << 10, 0);
+	codec_dbg(codec, "%s: 8\n", __func__);
 	alc_enable_headset_jack_key(codec);
+	codec_dbg(codec, "%s: LEAVE\n", __func__);
 }
 
 static void alc_default_init(struct hda_codec *codec)
@@ -6500,6 +6527,7 @@ static void alc_combo_jack_hp_jd_restart(struct hda_codec *codec)
 	case 0x10ec0225:
 	case 0x10ec0295:
 	case 0x10ec0299:
+		codec_dbg(codec, "%s: ENTER (0x4a)\n", __func__);
 		alc_update_coef_idx(codec, 0x4a, 0x8000, 1 << 15); /* Reset HP JD */
 		alc_update_coef_idx(codec, 0x4a, 0x8000, 0 << 15);
 		break;
@@ -6510,8 +6538,12 @@ static void alc_combo_jack_hp_jd_restart(struct hda_codec *codec)
 	case 0x10ec0256:
 	case 0x10ec0257:
 	case 0x19e58326:
+		codec_dbg(codec, "%s: ENTER (0x1b)\n", __func__);
 		alc_update_coef_idx(codec, 0x1b, 0x8000, 1 << 15); /* Reset HP JD */
 		alc_update_coef_idx(codec, 0x1b, 0x8000, 0 << 15);
+		break;
+	default:
+		codec_dbg(codec, "%s: ENTER (NOP)\n", __func__);
 		break;
 	}
 }
