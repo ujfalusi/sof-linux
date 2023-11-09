@@ -2800,8 +2800,8 @@ static unsigned int hda_set_power_state(struct hda_codec *codec,
 		flags = HDA_RW_NO_RESPONSE_FALLBACK;
 	}
 
-	/* repeat power states setting at most 10 times*/
-	for (count = 0; count < 10; count++) {
+	/* repeat power states setting at most 3 times*/
+	for (count = 0; count < 3; count++) {
 		if (codec->patch_ops.set_power_state) {
 			codec_dbg(codec, "%s: 1 (count: %d) set_power_state\n",
 				  __func__, count);
