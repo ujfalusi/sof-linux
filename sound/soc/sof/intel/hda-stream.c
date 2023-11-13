@@ -826,9 +826,8 @@ irqreturn_t hda_dsp_stream_threaded_handler(int irq, void *context)
 		active = hda_dsp_stream_check(bus, status);
 
 		/* check and clear RIRB interrupt */
-		if (status & AZX_INT_CTRL_EN) {
-			active |= hda_codec_check_rirb_status(sdev);
-		}
+		active |= hda_codec_check_rirb_status(sdev);
+
 		spin_unlock_irq(&bus->reg_lock);
 	}
 
