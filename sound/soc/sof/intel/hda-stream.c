@@ -813,13 +813,12 @@ irqreturn_t hda_dsp_stream_threaded_handler(int irq, void *context)
 	u32 status;
 	int i;
 
+	spin_lock_irq(&bus->reg_lock);
 	/*
 	 * Loop 10 times to handle missed interrupts caused by
 	 * unsolicited responses from the codec
 	 */
 	for (i = 0, active = true; i < 10 && active; i++) {
-		spin_lock_irq(&bus->reg_lock);
-
 		status = snd_sof_dsp_read(sdev, HDA_DSP_HDA_BAR, SOF_HDA_INTSTS);
 
 		/* check streams */
@@ -827,9 +826,8 @@ irqreturn_t hda_dsp_stream_threaded_handler(int irq, void *context)
 
 		/* check and clear RIRB interrupt */
 		active |= hda_codec_check_rirb_status(sdev);
-
-		spin_unlock_irq(&bus->reg_lock);
 	}
+	spin_unlock_irq(&bus->reg_lock);
 
 	return IRQ_HANDLED;
 }
