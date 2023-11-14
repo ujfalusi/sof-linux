@@ -417,6 +417,7 @@ static int mtl_dsp_core_power_down(struct snd_sof_dev *sdev, int core)
 
 int mtl_power_down_dsp(struct snd_sof_dev *sdev)
 {
+	struct sof_intel_hda_dev *hdev = sdev->pdata->hw_pdata;
 	u32 dsphfdsscs, cpa;
 	int ret;
 
@@ -426,6 +427,16 @@ int mtl_power_down_dsp(struct snd_sof_dev *sdev)
 		dev_err(sdev->dev, "mtl dsp power down error, %d\n", ret);
 		return ret;
 	}
+
+	/* if SoundWire is used, allow power gating */
+	if (hdev->info.handle && hdev->info.link_mask > 0)
+		snd_sof_dsp_update_bits(sdev, HDA_DSP_BAR, MTL_HFPWRCTL,
+					MTL_HfPWRCTL_WPIOXPG(1), 0);
+
+
+	/* Allow power gating for DSP domain */
+	snd_sof_dsp_update_bits(sdev, HDA_DSP_BAR, MTL_HFPWRCTL,
+				MTL_HFPWRCTL_WPDSPHPXPG, 0);
 
 	/* Set the DSP subsystem power down */
 	snd_sof_dsp_update_bits(sdev, HDA_DSP_BAR, MTL_HFDSSCS,
