@@ -219,7 +219,9 @@ static void alc_update_coefex_idx(struct hda_codec *codec, hda_nid_t nid,
 {
 	coef_mutex_lock(codec);
 	codec_dbg(codec, "%s: ENTER (%#x: %#x|%#x)\n", __func__, coef_idx, mask, bits_set);
+	trace_printk("%s: ENTER (%#x: %#x|%#x)\n", __func__, coef_idx, mask, bits_set);
 	__alc_update_coefex_idx(codec, nid, coef_idx, mask, bits_set);
+	trace_printk("%s: LEAVE (%#x: %#x|%#x)\n", __func__, coef_idx, mask, bits_set);
 	codec_dbg(codec, "%s: LEAVE (%#x: %#x|%#x)\n", __func__, coef_idx, mask, bits_set);
 	coef_mutex_unlock(codec);
 }

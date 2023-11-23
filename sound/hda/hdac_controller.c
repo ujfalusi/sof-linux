@@ -293,6 +293,9 @@ static int snd_hdac_bus_send_cmd_corb(struct hdac_bus *bus, unsigned int val)
 	bus->corb.buf[wp] = cpu_to_le32(val);
 	snd_hdac_chip_writew(bus, CORBWP, wp);
 
+	trace_printk("[peter] %s: addr: %#x, CORBWP: %u, CORBRP: %u [RIRBWP: %u (%u)]\n",
+		     __func__, addr, wp, rp, snd_hdac_chip_readw(bus, RIRBWP), bus->rirb.wp);
+
 	spin_unlock_irq(&bus->reg_lock);
 
 	return 0;
@@ -319,6 +322,9 @@ void snd_hdac_bus_update_rirb(struct hdac_bus *bus)
 		return;
 	}
 
+	trace_printk("[peter] %s: RIRBWP: %u (%u - rp: %u) [CORBWP: %u CORBRP: %u]\n",
+		     __func__, wp, bus->rirb.wp, bus->rirb.rp, snd_hdac_chip_readw(bus, CORBWP),
+		     snd_hdac_chip_readw(bus, CORBRP));
 	if (wp == bus->rirb.wp)
 		return;
 	bus->rirb.wp = wp;
@@ -336,9 +342,11 @@ void snd_hdac_bus_update_rirb(struct hdac_bus *bus)
 				"spurious response %#x:%#x, rp = %d, wp = %d",
 				res, res_ex, bus->rirb.rp, wp);
 			snd_BUG();
-		} else if (res_ex & AZX_RIRB_EX_UNSOL_EV)
+		} else if (res_ex & AZX_RIRB_EX_UNSOL_EV) {
+			trace_printk("[peter] %s: unsol\n", __func__);
 			snd_hdac_bus_queue_event(bus, res, res_ex);
-		else if (bus->rirb.cmds[addr]) {
+		} else if (bus->rirb.cmds[addr]) {
+			trace_printk("[peter] %s: addr: %#x, response\n", __func__, addr);
 			bus->rirb.res[addr] = res;
 			bus->rirb.cmds[addr]--;
 			if (!bus->rirb.cmds[addr] &&

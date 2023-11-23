@@ -427,6 +427,7 @@ void snd_hdac_aligned_write(unsigned int val, void __iomem *addr,
 static inline void snd_hdac_reg_writeb(struct hdac_bus *bus, void __iomem *addr,
 				       u8 val)
 {
+	trace_printk("hdac_reg_writeb: address: %px, val: %#x\n", addr, val);
 	if (snd_hdac_aligned_mmio(bus))
 		snd_hdac_aligned_write(val, addr, 0xff);
 	else
@@ -436,10 +437,25 @@ static inline void snd_hdac_reg_writeb(struct hdac_bus *bus, void __iomem *addr,
 static inline void snd_hdac_reg_writew(struct hdac_bus *bus, void __iomem *addr,
 				       u16 val)
 {
+	trace_printk("hdac_reg_writew: address: %px, val: %#x\n", addr, val);
 	if (snd_hdac_aligned_mmio(bus))
 		snd_hdac_aligned_write(val, addr, 0xffff);
 	else
 		writew(val, addr);
+}
+
+static inline void snd_hdac_reg_writel(void __maybe_unused *bus, void __iomem *addr,
+				       u32 val)
+{
+	trace_printk("hdac_reg_writel: address: %px, val: %#x\n", addr, val);
+	writel(val, addr);
+}
+
+static inline void snd_hdac_reg_writeq(void __maybe_unused *bus, void __iomem *addr,
+				       u64 val)
+{
+	trace_printk("hdac_reg_writeq: address: %px, val: %#llx\n", addr, val);
+	writeq(val, addr);
 }
 
 static inline u8 snd_hdac_reg_readb(struct hdac_bus *bus, void __iomem *addr)
@@ -454,9 +470,7 @@ static inline u16 snd_hdac_reg_readw(struct hdac_bus *bus, void __iomem *addr)
 		snd_hdac_aligned_read(addr, 0xffff) : readw(addr);
 }
 
-#define snd_hdac_reg_writel(bus, addr, val)	writel(val, addr)
 #define snd_hdac_reg_readl(bus, addr)	readl(addr)
-#define snd_hdac_reg_writeq(bus, addr, val)	writeq(val, addr)
 #define snd_hdac_reg_readq(bus, addr)		readq(addr)
 
 /*

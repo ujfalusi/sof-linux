@@ -8,7 +8,9 @@
 #include <linux/device.h>
 #include <linux/module.h>
 #include <linux/export.h>
+#include <sound/hda_register.h>
 #include <sound/hdaudio.h>
+#include <sound/hda_codec.h>
 #include "local.h"
 #include "trace.h"
 
@@ -129,6 +131,23 @@ int snd_hdac_bus_exec_verb_unlocked(struct hdac_bus *bus, unsigned int addr,
 	}
 	if (!err && res) {
 		err = bus->ops->get_response(bus, addr, res);
+		if (err) {
+			trace_printk("[peter] %s: get_response failed (cmd: %#x, err: %d, res: %#x)\n", __func__ ,cmd, err, *res);
+			trace_printk("[peter]:  RIRBCTL: %#x, RIRBSTS: %#x, RIRBWP: %u (%u)\n",
+				snd_hdac_chip_readb(bus, RIRBCTL), snd_hdac_chip_readb(bus, RIRBSTS),
+				snd_hdac_chip_readw(bus, RIRBWP), bus->rirb.wp);
+			trace_printk("[peter]:  CORBCTL: %#x, CORBSTS: %#x, CORBWP: %u CORBRP: %u\n",
+				snd_hdac_chip_readb(bus, CORBCTL), snd_hdac_chip_readb(bus, CORBSTS),
+				snd_hdac_chip_readw(bus, CORBWP), snd_hdac_chip_readw(bus, CORBRP));
+
+			pr_warn("[peter] %s: get_response failed (cmd: %#x, err: %d, res: %#x)\n", __func__ ,cmd, err, *res);
+			pr_warn("[peter]:  RIRBCTL: %#x, RIRBSTS: %#x, RIRBWP: %u (%u)\n",
+				snd_hdac_chip_readb(bus, RIRBCTL), snd_hdac_chip_readb(bus, RIRBSTS),
+				snd_hdac_chip_readw(bus, RIRBWP), bus->rirb.wp);
+			pr_warn("[peter]:  CORBCTL: %#x, CORBSTS: %#x, CORBWP: %u CORBRP: %u\n",
+				snd_hdac_chip_readb(bus, CORBCTL), snd_hdac_chip_readb(bus, CORBSTS),
+				snd_hdac_chip_readw(bus, CORBWP), snd_hdac_chip_readw(bus, CORBRP));
+		}
 		trace_hda_get_response(bus, addr, *res);
 	}
 	return err;
