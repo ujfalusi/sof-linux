@@ -61,10 +61,6 @@ void snd_hdac_bus_init_cmd_io(struct hdac_bus *bus)
 	if (!bus->corbrp_self_clear)
 		azx_clear_corbrp(bus);
 
-	/* enable corb dma */
-	if (!bus->use_pio_for_commands)
-		snd_hdac_chip_writeb(bus, CORBCTL, AZX_CORBCTL_RUN);
-
 	/* RIRB set up */
 	bus->rirb.addr = bus->rb.addr + 2048;
 	bus->rirb.buf = (__le32 *)(bus->rb.area + 2048);
@@ -79,13 +75,6 @@ void snd_hdac_bus_init_cmd_io(struct hdac_bus *bus)
 	snd_hdac_chip_writew(bus, RIRBWP, AZX_RIRBWP_RST);
 	/* set N=1, get RIRB response interrupt for new entry */
 	snd_hdac_chip_writew(bus, RINTCNT, 1);
-	/* enable rirb dma and response irq */
-	if (bus->not_use_interrupts)
-		snd_hdac_chip_writeb(bus, RIRBCTL, AZX_RBCTL_DMA_EN);
-	else
-		snd_hdac_chip_writeb(bus, RIRBCTL, AZX_RBCTL_DMA_EN | AZX_RBCTL_IRQ_EN);
-	/* Accept unsolicited responses */
-	snd_hdac_chip_updatel(bus, GCTL, AZX_GCTL_UNSOL, AZX_GCTL_UNSOL);
 	spin_unlock_irq(&bus->reg_lock);
 }
 EXPORT_SYMBOL_GPL(snd_hdac_bus_init_cmd_io);
@@ -137,6 +126,43 @@ void snd_hdac_bus_stop_cmd_io(struct hdac_bus *bus)
 }
 EXPORT_SYMBOL_GPL(snd_hdac_bus_stop_cmd_io);
 
+/**
+ * snd_hdac_bus_start_cmd_io - clean up CORB/RIRB buffers
+ * @bus: HD-audio core bus
+ */
+static int snd_hdac_bus_start_cmd_io(struct hdac_bus *bus)
+{
+	unsigned long timeout;
+
+	if (snd_hdac_chip_readb(bus, RIRBCTL) & AZX_RBCTL_DMA_EN)
+		return 0;
+
+	if (!bus->not_use_interrupts)
+		snd_hdac_chip_updateb(bus, RIRBCTL, AZX_RBCTL_IRQ_EN,
+				      AZX_RBCTL_IRQ_EN);
+
+	/* Accept unsolicited responses */
+	snd_hdac_chip_updatel(bus, GCTL, AZX_GCTL_UNSOL, AZX_GCTL_UNSOL);
+
+	if (!bus->use_pio_for_commands) {
+		/* enable corb dma */
+		snd_hdac_chip_writeb(bus, CORBCTL, AZX_CORBCTL_RUN);
+		timeout = jiffies + msecs_to_jiffies(100);
+		while (((snd_hdac_chip_readb(bus, CORBCTL) & AZX_CORBCTL_RUN) == 0)
+			&& time_before(jiffies, timeout))
+			udelay(10);
+	}
+
+	/* enable rirb dma and response irq */
+	snd_hdac_chip_updateb(bus, RIRBCTL, AZX_RBCTL_DMA_EN, AZX_RBCTL_DMA_EN);
+	timeout = jiffies + msecs_to_jiffies(100);
+	while (((snd_hdac_chip_readb(bus, RIRBCTL) & AZX_RBCTL_DMA_EN) == 0)
+		&& time_before(jiffies, timeout))
+		udelay(10);
+
+	return 0;
+}
+
 static unsigned int azx_command_addr(u32 cmd)
 {
 	unsigned int addr = cmd >> 28;
@@ -182,6 +208,8 @@ static int snd_hdac_bus_send_cmd_pio(struct hdac_bus *bus, unsigned int val)
 	unsigned int addr = azx_command_addr(val);
 	int timeout = 50;
 	int ret = -EIO;
+
+	snd_hdac_bus_start_cmd_io(bus);
 
 	spin_lock_irq(&bus->reg_lock);
 
@@ -237,6 +265,8 @@ static int snd_hdac_bus_send_cmd_corb(struct hdac_bus *bus, unsigned int val)
 {
 	unsigned int addr = azx_command_addr(val);
 	unsigned int wp, rp;
+
+	snd_hdac_bus_start_cmd_io(bus);
 
 	spin_lock_irq(&bus->reg_lock);
 
