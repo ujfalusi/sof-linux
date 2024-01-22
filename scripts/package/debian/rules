@@ -42,6 +42,7 @@ package = $($(@:binary-%=%-package))
 # We could 'export' it, but here it is passed from the command line to clarify
 # which package is being processed in the build log.
 DH_OPTIONS = -p$(package)
+export DH_COMPAT=12
 
 # Note: future removal of KDEB_COMPRESS
 # dpkg-deb >= 1.21.10 supports the DPKG_DEB_COMPRESSOR_TYPE environment
