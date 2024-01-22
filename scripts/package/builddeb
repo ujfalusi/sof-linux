@@ -26,6 +26,7 @@ if_enabled_echo() {
 
 create_package() {
 	export DH_OPTIONS="-p${1}"
+	export DH_COMPAT=12
 
 	dh_installdocs
 	dh_installchangelogs
