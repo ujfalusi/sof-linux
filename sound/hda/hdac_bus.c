@@ -97,6 +97,8 @@ int snd_hdac_bus_exec_verb(struct hdac_bus *bus, unsigned int addr,
 	return err;
 }
 
+static bool waited_for_scandump;
+
 /**
  * snd_hdac_bus_exec_verb_unlocked - unlocked version
  * @bus: bus object
@@ -147,7 +149,20 @@ int snd_hdac_bus_exec_verb_unlocked(struct hdac_bus *bus, unsigned int addr,
 			pr_warn("[peter]:  CORBCTL: %#x, CORBSTS: %#x, CORBWP: %u CORBRP: %u\n",
 				snd_hdac_chip_readb(bus, CORBCTL), snd_hdac_chip_readb(bus, CORBSTS),
 				snd_hdac_chip_readw(bus, CORBWP), snd_hdac_chip_readw(bus, CORBRP));
+
+			if (!waited_for_scandump) {
+				pr_err("[peter]: wait for 3 minutes for scandump!!\n");
+				msleep(180000);
+				pr_warn("[peter]: 3min wait done, wait for 10 sec\n");
+				msleep(10000);
+				waited_for_scandump = true;
+				pr_err("[peter]: wait is done\n");
+			}
+			err = -EAGAIN;
+		} else {
+			waited_for_scandump = false;
 		}
+
 		trace_hda_get_response(bus, addr, *res);
 	}
 	return err;
