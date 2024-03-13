@@ -1171,11 +1171,14 @@ u64 hda_dsp_get_stream_llp(struct snd_sof_dev *sdev,
 			   struct snd_pcm_substream *substream)
 {
 	struct snd_soc_pcm_runtime *rtd = snd_soc_substream_to_rtd(substream);
+	struct hdac_bus *bus = sof_to_bus(sdev);
 	struct snd_soc_pcm_runtime *be_rtd = NULL;
 	struct hdac_ext_stream *hext_stream;
 	struct snd_soc_dai *cpu_dai;
 	struct snd_soc_dpcm *dpcm;
+	struct hdac_stream *s;
 	u32 llp_l, llp_u;
+	u32 llp2_l, llp2_u;
 
 	/*
 	 * The LLP needs to be read from the Link DMA used for this FE as it is
@@ -1199,6 +1202,46 @@ u64 hda_dsp_get_stream_llp(struct snd_sof_dev *sdev,
 	if (!hext_stream)
 		return 0;
 
+	pr_warn("[peter] %s: ENTER\n", __func__);
+	/* Dump LOSIDV for all links */
+	{
+		struct hdac_ext_link *hlink;
+
+		list_for_each_entry(hlink, &bus->hlink_list, list) {
+			u32 losidv = readl(hlink->ml_addr + AZX_REG_ML_LOSIDV);
+			u32 lctl = readl(hlink->ml_addr + AZX_REG_ML_LCTL);
+
+			dev_warn(sdev->dev,
+				 "%s: link idx=%d ref=%d losidv=0x%08x lctl=0x%08x\n",
+				 __func__, hlink->index, hlink->ref_count, losidv, lctl);
+		}
+	}
+	/* Dump LLP/LDP for all HDA DMA channels */
+	list_for_each_entry(s, &bus->stream_list, list) {
+		struct hdac_ext_stream *hes = stream_to_hdac_ext_stream(s);
+		u32 l, u, l2, u2, ldp_l, ldp_u;
+		u32 pplcctl, pplcfmt;
+
+		if (!hes->pplc_addr || !hes->pphc_addr || s->direction != dir)
+			continue;
+
+		pplcctl = readl(hes->pplc_addr + AZX_REG_PPLCCTL);
+		pplcfmt = readw(hes->pplc_addr + AZX_REG_PPLCFMT);
+		l = readl(hes->pplc_addr + AZX_REG_PPLCLLPL);
+		u = readl(hes->pplc_addr + AZX_REG_PPLCLLPU);
+		l2 = readl(hes->pphc_addr + AZX_REG_PPHCLLPL);
+		u2 = readl(hes->pphc_addr + AZX_REG_PPHCLLPU);
+		ldp_l = readl(hes->pphc_addr + AZX_REG_PPHCLDPL);
+		ldp_u = readl(hes->pphc_addr + AZX_REG_PPHCLDPU);
+
+		dev_warn(sdev->dev,
+			 "%s: stream_tag: %d, dir: %d, opened: %d, running: %d, pplcctl: 0x%08x, pplcfmt: 0x%04x, pplc_llp: %llu, pphc_llp: %llu, pphc_ldp: %llu%s\n",
+			 __func__, s->stream_tag, s->direction, s->opened, s->running,
+			 pplcctl, pplcfmt,
+			 merge_u64(u, l), merge_u64(u2, l2), merge_u64(ldp_u, ldp_l),
+			 hext_stream->hstream.stream_tag == s->stream_tag ? " *" : "");
+	}
+
 	/*
 	 * The pplc_addr have been calculated during probe in
 	 * hda_dsp_stream_init():
@@ -1212,10 +1255,23 @@ u64 hda_dsp_get_stream_llp(struct snd_sof_dev *sdev,
 	llp_l = readl(hext_stream->pplc_addr + AZX_REG_PPLCLLPL);
 	llp_u = readl(hext_stream->pplc_addr + AZX_REG_PPLCLLPU);
 
-	/* Compensate the LLP counter with the saved offset */
+	llp2_l = readl(hext_stream->pphc_addr + AZX_REG_PPHCLLPL);
+	llp2_u = readl(hext_stream->pphc_addr + AZX_REG_PPHCLLPU);
+
+	{
+		u16 fmt = readw(hext_stream->pplc_addr + AZX_REG_PPLCFMT);
+		unsigned int frame_bytes = hda_fmt_to_frame_bytes(fmt);
+		u64 pplc_llp = merge_u64(llp_u, llp_l);
+		u64 pphc_llp = merge_u64(llp2_u, llp2_l);
+
+		pr_warn("[peter] %s: stream_tag: %d, pplc_llp: %llu, pphc_llp: %llu, fmt: 0x%04x, frame_bytes: %u\n",
+			__func__, hext_stream->hstream.stream_tag,
+			pplc_llp, pphc_llp, fmt, frame_bytes);
+	}
+
+	/* Compensate with the saved offset */
 	if (hext_stream->pplcllpl || hext_stream->pplcllpu)
-		return merge_u64(llp_u, llp_l) -
-		       merge_u64(hext_stream->pplcllpu, hext_stream->pplcllpl);
+		return merge_u64(llp_u, llp_l) - merge_u64(hext_stream->pplcllpu, hext_stream->pplcllpl);
 
 	return merge_u64(llp_u, llp_l);
 }
@@ -1236,6 +1292,7 @@ u64 hda_dsp_get_stream_ldp(struct snd_sof_dev *sdev,
 	struct hdac_stream *hstream = substream->runtime->private_data;
 	struct hdac_ext_stream *hext_stream = stream_to_hdac_ext_stream(hstream);
 	u32 ldp_l, ldp_u;
+	u32 llp_l, llp_u;
 
 	/*
 	 * The pphc_addr have been calculated during probe in
@@ -1248,6 +1305,12 @@ u64 hda_dsp_get_stream_ldp(struct snd_sof_dev *sdev,
 	 */
 	ldp_l = readl(hext_stream->pphc_addr + AZX_REG_PPHCLDPL);
 	ldp_u = readl(hext_stream->pphc_addr + AZX_REG_PPHCLDPU);
+
+	llp_l = readl(hext_stream->pphc_addr + AZX_REG_PPHCLLPL);
+	llp_u = readl(hext_stream->pphc_addr + AZX_REG_PPHCLLPU);
+
+	pr_warn("[peter] %s: stream_tag: %d, ldp: %llu, llp: %llu\n", __func__,
+		hext_stream->hstream.stream_tag, merge_u64(ldp_u, ldp_l), merge_u64(llp_u, llp_l));
 
 	return ((u64)ldp_u << 32) | ldp_l;
 }

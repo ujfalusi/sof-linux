@@ -602,6 +602,7 @@ free:
 static int sof_ipc4_pcm_trigger(struct snd_soc_component *component,
 				struct snd_pcm_substream *substream, int cmd)
 {
+	u64 tmp_cnt;
 	int state;
 
 	/* determine the pipeline state */
@@ -610,11 +611,19 @@ static int sof_ipc4_pcm_trigger(struct snd_soc_component *component,
 	case SNDRV_PCM_TRIGGER_RESUME:
 	case SNDRV_PCM_TRIGGER_START:
 		state = SOF_IPC4_PIPE_RUNNING;
+		pr_warn("[peter] | trigger: RELEASE\n");
+		tmp_cnt = snd_sof_pcm_get_dai_frame_counter(snd_soc_component_get_drvdata(component),
+						  component, substream);
+		pr_warn("[peter] | trigger: RELEASE (%llu)\n", tmp_cnt);
 		break;
 	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
 	case SNDRV_PCM_TRIGGER_SUSPEND:
 	case SNDRV_PCM_TRIGGER_STOP:
 		state = SOF_IPC4_PIPE_PAUSED;
+		pr_warn("[peter] | trigger: PAUSE\n");
+		tmp_cnt = snd_sof_pcm_get_dai_frame_counter(snd_soc_component_get_drvdata(component),
+						  component, substream);
+		pr_warn("[peter] | trigger: PAUSE (%llu)\n", tmp_cnt);
 		break;
 	default:
 		dev_err(component->dev, "%s: unhandled trigger cmd %d\n", __func__, cmd);
@@ -1184,6 +1193,7 @@ static int sof_ipc4_pcm_pointer(struct snd_soc_component *component,
 	struct snd_sof_pcm_stream *sps;
 	u64 dai_cnt, host_cnt, host_ptr;
 	struct snd_sof_pcm *spcm;
+	u64 tmp_dai_cnt, tmp_host_cnt;
 	int ret;
 
 	spcm = snd_sof_find_spcm_dai(component, rtd);
@@ -1192,8 +1202,10 @@ static int sof_ipc4_pcm_pointer(struct snd_soc_component *component,
 
 	sps = &spcm->stream[substream->stream];
 	time_info = sof_ipc4_sps_to_time_info(sps);
-	if (!time_info)
+	if (!time_info) {
+		pr_warn("[peter] %s: no time_info!\n", __func__);
 		return -EOPNOTSUPP;
+	}
 
 	/*
 	 * stream_start_offset is updated to memory window by FW based on
@@ -1202,9 +1214,31 @@ static int sof_ipc4_pcm_pointer(struct snd_soc_component *component,
 	 */
 	if (time_info->stream_start_offset == SOF_IPC4_INVALID_STREAM_POSITION) {
 		ret = sof_ipc4_get_stream_start_offset(sdev, substream, sps, time_info);
-		if (ret < 0)
+		if (ret < 0) {
+			pr_warn("[peter] %s: no stream_start_offset!\n", __func__);
 			return -EOPNOTSUPP;
+		}
 	}
+
+	/*
+	 * If the LLP counter is not reported by firmware in the SRAM window
+	 * then read the dai (link) counter via host accessible means if
+	 * available.
+	 */
+	if (!time_info->llp_offset) {
+		dai_cnt = snd_sof_pcm_get_dai_frame_counter(sdev, component, substream);
+		if (!dai_cnt) {
+			pr_warn("[peter] %s: dai_cnt = 0!\n", __func__);
+			return -EOPNOTSUPP;
+		}
+	} else {
+		sof_mailbox_read(sdev, time_info->llp_offset, &llp, sizeof(llp));
+		dai_cnt = ((u64)llp.reading.llp_u << 32) | llp.reading.llp_l;
+	}
+
+	dai_cnt = sof_ipc4_frames_dai_to_host(time_info, dai_cnt);
+	tmp_dai_cnt = dai_cnt;
+	dai_cnt += time_info->stream_end_offset;
 
 	/* For delay calculation we need the host counter */
 	host_cnt = snd_sof_pcm_get_host_byte_counter(sdev, component, substream);
@@ -1214,23 +1248,7 @@ static int sof_ipc4_pcm_pointer(struct snd_soc_component *component,
 
 	/* convert the host_cnt to frames */
 	host_cnt = div64_u64(host_cnt, frames_to_bytes(substream->runtime, 1));
-
-	/*
-	 * If the LLP counter is not reported by firmware in the SRAM window
-	 * then read the dai (link) counter via host accessible means if
-	 * available.
-	 */
-	if (!time_info->llp_offset) {
-		dai_cnt = snd_sof_pcm_get_dai_frame_counter(sdev, component, substream);
-		if (!dai_cnt)
-			return -EOPNOTSUPP;
-	} else {
-		sof_mailbox_read(sdev, time_info->llp_offset, &llp, sizeof(llp));
-		dai_cnt = ((u64)llp.reading.llp_u << 32) | llp.reading.llp_l;
-	}
-
-	dai_cnt = sof_ipc4_frames_dai_to_host(time_info, dai_cnt);
-	dai_cnt += time_info->stream_end_offset;
+	tmp_host_cnt = host_cnt;
 
 	/* In two cases dai dma counter is not accurate
 	 * (1) dai pipeline is started before host pipeline
@@ -1275,18 +1293,34 @@ static int sof_ipc4_pcm_pointer(struct snd_soc_component *component,
 		tail_cnt = host_cnt;
 	}
 
-	if (unlikely(head_cnt < tail_cnt))
+	if (head_cnt < tail_cnt) {
+		pr_warn("[peter] | llp_offset: %#x, offset: %llu / %llu, tail_cnt: %lu, head_cnt: %lu, delay: %lu (dai: %llu, host: %llu) (OhNooo)\n",
+			time_info->llp_offset, time_info->stream_start_offset, time_info->stream_end_offset,
+			tail_cnt, head_cnt, tail_cnt - head_cnt, tmp_dai_cnt, tmp_host_cnt);
 		time_info->delay = DELAY_BOUNDARY - tail_cnt + head_cnt;
-	else
-		time_info->delay = head_cnt - tail_cnt;
-
-	if (time_info->delay > DELAY_MAX) {
-		spcm_dbg_ratelimited(spcm, substream->stream,
-				     "inaccurate delay, host %llu dai_cnt %llu",
-				     host_cnt, dai_cnt);
-		time_info->delay = 0;
+		goto out;
 	}
 
+	if (time_info->delay > DELAY_MAX) {
+		spcm_dbg(spcm, substream->stream,
+			"inaccurate delay, host %llu, dai_cnt %llu (%s), start_offset: %llu, diff: %ld",
+			host_cnt, dai_cnt, time_info->llp_offset ? "firmware" : "host",
+			time_info->stream_start_offset, (long)head_cnt - (long)tail_cnt);
+		time_info->delay = 0;
+	} else {
+		spcm_dbg(spcm, substream->stream,
+			"           delay, host %llu, dai_cnt %llu (%s), start_offset: %llu, diff: %ld",
+			host_cnt, dai_cnt, time_info->llp_offset ? "firmware" : "host",
+			time_info->stream_start_offset, (long)head_cnt - (long)tail_cnt);
+	}
+
+	pr_warn("[peter] | llp_offset: %#x, offset: %llu / %llu, tail_cnt: %lu, head_cnt: %lu, delay: %lu (dai: %llu, host: %llu)\n",
+		time_info->llp_offset, time_info->stream_start_offset, time_info->stream_end_offset,
+		tail_cnt, head_cnt, head_cnt - tail_cnt, tmp_dai_cnt, tmp_host_cnt);
+
+	time_info->delay =  head_cnt - tail_cnt;
+
+out:
 	/*
 	 * Convert the host byte counter to PCM pointer which wraps in buffer
 	 * and it is in frames
@@ -1294,6 +1328,7 @@ static int sof_ipc4_pcm_pointer(struct snd_soc_component *component,
 	div64_u64_rem(host_ptr, snd_pcm_lib_buffer_bytes(substream), &host_ptr);
 	*pointer = bytes_to_frames(substream->runtime, host_ptr);
 
+	pr_warn("[peter] | ldp pointer: %lu\n", *pointer);
 	return 0;
 }
 
