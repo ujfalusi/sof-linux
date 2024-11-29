@@ -41,8 +41,18 @@ static const struct sof_dev_desc lnl_desc = {
 	.ipc_default		= SOF_IPC_TYPE_4,
 	.dspless_mode_supported	= true,
 	.on_demand_dsp_boot	= true,
-	.vendor			= "intel",
-	.platform		= "lnl",
+	.default_fw_path = {
+		[SOF_IPC_TYPE_4] = "intel/sof-ipc4/lnl",
+	},
+	.default_lib_path = {
+		[SOF_IPC_TYPE_4] = "intel/sof-ipc4-lib/lnl",
+	},
+	.default_tplg_path = {
+		[SOF_IPC_TYPE_4] = "intel/sof-ipc4-tplg",
+	},
+	.default_fw_filename = {
+		[SOF_IPC_TYPE_4] = "sof-lnl.ri",
+	},
 	.nocodec_tplg_filename = "sof-lnl-nocodec.tplg",
 	.ops = &sof_lnl_ops,
 	.ops_init = sof_lnl_ops_init,

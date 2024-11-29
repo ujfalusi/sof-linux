@@ -19,8 +19,6 @@
 /* platform specific devices */
 #include "hda.h"
 
-static const char vendor_string[] = "intel";
-
 static const struct sof_dev_desc cnl_desc = {
 	.machines		= snd_soc_acpi_intel_cnl_machines,
 	.alt_machines		= snd_soc_acpi_intel_cnl_sdw_machines,
@@ -33,8 +31,21 @@ static const struct sof_dev_desc cnl_desc = {
 	.ipc_supported_mask	= BIT(SOF_IPC_TYPE_3) | BIT(SOF_IPC_TYPE_4),
 	.ipc_default		= SOF_IPC_TYPE_3,
 	.dspless_mode_supported	= true,		/* Only supported for HDaudio */
-	.vendor			= vendor_string,
-	.platform		= "cnl",
+	.default_fw_path = {
+		[SOF_IPC_TYPE_3] = "intel/sof",
+		[SOF_IPC_TYPE_4] = "intel/avs/cnl",
+	},
+	.default_lib_path = {
+		[SOF_IPC_TYPE_4] = "intel/avs-lib/cnl",
+	},
+	.default_tplg_path = {
+		[SOF_IPC_TYPE_3] = "intel/sof-tplg",
+		[SOF_IPC_TYPE_4] = "intel/avs-tplg",
+	},
+	.default_fw_filename = {
+		[SOF_IPC_TYPE_3] = "sof-cnl.ri",
+		[SOF_IPC_TYPE_4] = "dsp_basefw.bin",
+	},
 	.nocodec_tplg_filename = "sof-cnl-nocodec.tplg",
 	.ops = &sof_cnl_ops,
 	.ops_init = sof_cnl_ops_init,
@@ -53,8 +64,21 @@ static const struct sof_dev_desc cfl_desc = {
 	.ipc_supported_mask	= BIT(SOF_IPC_TYPE_3) | BIT(SOF_IPC_TYPE_4),
 	.ipc_default		= SOF_IPC_TYPE_3,
 	.dspless_mode_supported	= true,		/* Only supported for HDaudio */
-	.vendor			= vendor_string,
-	.platform		= "cfl",
+	.default_fw_path = {
+		[SOF_IPC_TYPE_3] = "intel/sof",
+		[SOF_IPC_TYPE_4] = "intel/avs/cnl",
+	},
+	.default_lib_path = {
+		[SOF_IPC_TYPE_4] = "intel/avs-lib/cnl",
+	},
+	.default_tplg_path = {
+		[SOF_IPC_TYPE_3] = "intel/sof-tplg",
+		[SOF_IPC_TYPE_4] = "intel/avs-tplg",
+	},
+	.default_fw_filename = {
+		[SOF_IPC_TYPE_3] = "sof-cfl.ri",
+		[SOF_IPC_TYPE_4] = "dsp_basefw.bin",
+	},
 	.nocodec_tplg_filename = "sof-cnl-nocodec.tplg",
 	.ops = &sof_cnl_ops,
 	.ops_init = sof_cnl_ops_init,
@@ -73,8 +97,21 @@ static const struct sof_dev_desc cml_desc = {
 	.ipc_supported_mask	= BIT(SOF_IPC_TYPE_3) | BIT(SOF_IPC_TYPE_4),
 	.ipc_default		= SOF_IPC_TYPE_3,
 	.dspless_mode_supported	= true,		/* Only supported for HDaudio */
-	.vendor			= vendor_string,
-	.platform		= "cml",
+	.default_fw_path = {
+		[SOF_IPC_TYPE_3] = "intel/sof",
+		[SOF_IPC_TYPE_4] = "intel/avs/cnl",
+	},
+	.default_lib_path = {
+		[SOF_IPC_TYPE_4] = "intel/avs-lib/cnl",
+	},
+	.default_tplg_path = {
+		[SOF_IPC_TYPE_3] = "intel/sof-tplg",
+		[SOF_IPC_TYPE_4] = "intel/avs-tplg",
+	},
+	.default_fw_filename = {
+		[SOF_IPC_TYPE_3] = "sof-cml.ri",
+		[SOF_IPC_TYPE_4] = "dsp_basefw.bin",
+	},
 	.nocodec_tplg_filename = "sof-cnl-nocodec.tplg",
 	.ops = &sof_cnl_ops,
 	.ops_init = sof_cnl_ops_init,

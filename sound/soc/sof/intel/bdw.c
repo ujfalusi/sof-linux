@@ -635,8 +635,15 @@ static const struct sof_dev_desc sof_acpi_broadwell_desc = {
 	.chip_info = &bdw_chip_info,
 	.ipc_supported_mask = BIT(SOF_IPC_TYPE_3),
 	.ipc_default = SOF_IPC_TYPE_3,
-	.vendor = "intel",
-	.platform = "bdw",
+	.default_fw_path = {
+		[SOF_IPC_TYPE_3] = "intel/sof",
+	},
+	.default_tplg_path = {
+		[SOF_IPC_TYPE_3] = "intel/sof-tplg",
+	},
+	.default_fw_filename = {
+		[SOF_IPC_TYPE_3] = "sof-bdw.ri",
+	},
 	.nocodec_tplg_filename = "sof-bdw-nocodec.tplg",
 	.ops = &sof_bdw_ops,
 };
