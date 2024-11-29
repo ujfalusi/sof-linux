@@ -19,8 +19,6 @@
 /* platform specific devices */
 #include "hda.h"
 
-static const char vendor_string[] = "intel";
-
 static const struct sof_dev_desc bxt_desc = {
 	.machines		= snd_soc_acpi_intel_bxt_machines,
 	.use_acpi_target_states	= true,
@@ -32,8 +30,21 @@ static const struct sof_dev_desc bxt_desc = {
 	.ipc_supported_mask	= BIT(SOF_IPC_TYPE_3) | BIT(SOF_IPC_TYPE_4),
 	.ipc_default		= SOF_IPC_TYPE_3,
 	.dspless_mode_supported	= true,		/* Only supported for HDaudio */
-	.vendor			= vendor_string,
-	.platform		= "apl",
+	.default_fw_path = {
+		[SOF_IPC_TYPE_3] = "intel/sof",
+		[SOF_IPC_TYPE_4] = "intel/avs/apl",
+	},
+	.default_lib_path = {
+		[SOF_IPC_TYPE_4] = "intel/avs-lib/apl",
+	},
+	.default_tplg_path = {
+		[SOF_IPC_TYPE_3] = "intel/sof-tplg",
+		[SOF_IPC_TYPE_4] = "intel/avs-tplg",
+	},
+	.default_fw_filename = {
+		[SOF_IPC_TYPE_3] = "sof-apl.ri",
+		[SOF_IPC_TYPE_4] = "dsp_basefw.bin",
+	},
 	.nocodec_tplg_filename = "sof-apl-nocodec.tplg",
 	.ops = &sof_apl_ops,
 	.ops_init = sof_apl_ops_init,
@@ -51,8 +62,21 @@ static const struct sof_dev_desc glk_desc = {
 	.ipc_supported_mask	= BIT(SOF_IPC_TYPE_3) | BIT(SOF_IPC_TYPE_4),
 	.ipc_default		= SOF_IPC_TYPE_3,
 	.dspless_mode_supported	= true,		/* Only supported for HDaudio */
-	.vendor			= vendor_string,
-	.platform		= "glk",
+	.default_fw_path = {
+		[SOF_IPC_TYPE_3] = "intel/sof",
+		[SOF_IPC_TYPE_4] = "intel/avs/glk",
+	},
+	.default_lib_path = {
+		[SOF_IPC_TYPE_4] = "intel/avs-lib/glk",
+	},
+	.default_tplg_path = {
+		[SOF_IPC_TYPE_3] = "intel/sof-tplg",
+		[SOF_IPC_TYPE_4] = "intel/avs-tplg",
+	},
+	.default_fw_filename = {
+		[SOF_IPC_TYPE_3] = "sof-glk.ri",
+		[SOF_IPC_TYPE_4] = "dsp_basefw.bin",
+	},
 	.nocodec_tplg_filename = "sof-glk-nocodec.tplg",
 	.ops = &sof_apl_ops,
 	.ops_init = sof_apl_ops_init,
