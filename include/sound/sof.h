@@ -162,9 +162,13 @@ struct sof_dev_desc {
 	/* On demand DSP booting is possible on the platform */
 	bool on_demand_dsp_boot;
 
-	/* strings used for the firmware layout path/filename creation */
-	const char *vendor;
-	const char *platform;
+	/* defaults paths for firmware, library and topology files */
+	const char *default_fw_path[SOF_IPC_TYPE_COUNT];
+	const char *default_lib_path[SOF_IPC_TYPE_COUNT];
+	const char *default_tplg_path[SOF_IPC_TYPE_COUNT];
+
+	/* default firmware name */
+	const char *default_fw_filename[SOF_IPC_TYPE_COUNT];
 
 	const struct snd_sof_dsp_ops *ops;
 	int (*ops_init)(struct snd_sof_dev *sdev);

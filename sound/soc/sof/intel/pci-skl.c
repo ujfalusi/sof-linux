@@ -17,8 +17,6 @@
 /* platform specific devices */
 #include "hda.h"
 
-static const char vendor_string[] = "intel";
-
 static struct sof_dev_desc skl_desc = {
 	.machines		= snd_soc_acpi_intel_skl_machines,
 	.resindex_lpe_base	= 0,
@@ -29,8 +27,15 @@ static struct sof_dev_desc skl_desc = {
 	.ipc_supported_mask	= BIT(SOF_IPC_TYPE_4),
 	.ipc_default		= SOF_IPC_TYPE_4,
 	.dspless_mode_supported	= true,		/* Only supported for HDaudio */
-	.vendor			= vendor_string,
-	.platform		= "skl",
+	.default_fw_path = {
+		[SOF_IPC_TYPE_4] = "intel/avs/skl",
+	},
+	.default_tplg_path = {
+		[SOF_IPC_TYPE_4] = "intel/avs-tplg",
+	},
+	.default_fw_filename = {
+		[SOF_IPC_TYPE_4] = "dsp_basefw.bin",
+	},
 	.nocodec_tplg_filename = "sof-skl-nocodec.tplg",
 	.ops = &sof_skl_ops,
 	.ops_init = sof_skl_ops_init,
@@ -47,8 +52,15 @@ static struct sof_dev_desc kbl_desc = {
 	.ipc_supported_mask	= BIT(SOF_IPC_TYPE_4),
 	.ipc_default		= SOF_IPC_TYPE_4,
 	.dspless_mode_supported	= true,		/* Only supported for HDaudio */
-	.vendor			= vendor_string,
-	.platform		= "kbl",
+	.default_fw_path = {
+		[SOF_IPC_TYPE_4] = "intel/avs/kbl",
+	},
+	.default_tplg_path = {
+		[SOF_IPC_TYPE_4] = "intel/avs-tplg",
+	},
+	.default_fw_filename = {
+		[SOF_IPC_TYPE_4] = "dsp_basefw.bin",
+	},
 	.nocodec_tplg_filename = "sof-kbl-nocodec.tplg",
 	.ops = &sof_skl_ops,
 	.ops_init = sof_skl_ops_init,

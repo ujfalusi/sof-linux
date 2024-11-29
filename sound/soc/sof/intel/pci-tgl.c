@@ -19,8 +19,6 @@
 /* platform specific devices */
 #include "hda.h"
 
-static const char vendor_string[] = "intel";
-
 static const struct sof_dev_desc tgl_desc = {
 	.machines               = snd_soc_acpi_intel_tgl_machines,
 	.alt_machines		= snd_soc_acpi_intel_tgl_sdw_machines,
@@ -33,8 +31,21 @@ static const struct sof_dev_desc tgl_desc = {
 	.ipc_supported_mask	= BIT(SOF_IPC_TYPE_3) | BIT(SOF_IPC_TYPE_4),
 	.ipc_default		= SOF_IPC_TYPE_3,
 	.dspless_mode_supported	= true,		/* Only supported for HDaudio */
-	.vendor			= vendor_string,
-	.platform		= "tgl",
+	.default_fw_path = {
+		[SOF_IPC_TYPE_3] = "intel/sof",
+		[SOF_IPC_TYPE_4] = "intel/sof-ipc4/tgl",
+	},
+	.default_lib_path = {
+		[SOF_IPC_TYPE_4] = "intel/sof-ipc4-lib/tgl",
+	},
+	.default_tplg_path = {
+		[SOF_IPC_TYPE_3] = "intel/sof-tplg",
+		[SOF_IPC_TYPE_4] = "intel/sof-ipc4-tplg",
+	},
+	.default_fw_filename = {
+		[SOF_IPC_TYPE_3] = "sof-tgl.ri",
+		[SOF_IPC_TYPE_4] = "sof-tgl.ri",
+	},
 	.nocodec_tplg_filename = "sof-tgl-nocodec.tplg",
 	.ops = &sof_tgl_ops,
 	.ops_init = sof_tgl_ops_init,
@@ -53,8 +64,21 @@ static const struct sof_dev_desc tglh_desc = {
 	.ipc_supported_mask	= BIT(SOF_IPC_TYPE_3) | BIT(SOF_IPC_TYPE_4),
 	.ipc_default		= SOF_IPC_TYPE_3,
 	.dspless_mode_supported	= true,		/* Only supported for HDaudio */
-	.vendor			= vendor_string,
-	.platform		= "tgl-h",
+	.default_fw_path = {
+		[SOF_IPC_TYPE_3] = "intel/sof",
+		[SOF_IPC_TYPE_4] = "intel/sof-ipc4/tgl-h",
+	},
+	.default_lib_path = {
+		[SOF_IPC_TYPE_4] = "intel/sof-ipc4-lib/tgl-h",
+	},
+	.default_tplg_path = {
+		[SOF_IPC_TYPE_3] = "intel/sof-tplg",
+		[SOF_IPC_TYPE_4] = "intel/sof-ipc4-tplg",
+	},
+	.default_fw_filename = {
+		[SOF_IPC_TYPE_3] = "sof-tgl-h.ri",
+		[SOF_IPC_TYPE_4] = "sof-tgl-h.ri",
+	},
 	.nocodec_tplg_filename = "sof-tgl-nocodec.tplg",
 	.ops = &sof_tgl_ops,
 	.ops_init = sof_tgl_ops_init,
@@ -72,8 +96,21 @@ static const struct sof_dev_desc ehl_desc = {
 	.ipc_supported_mask	= BIT(SOF_IPC_TYPE_3) | BIT(SOF_IPC_TYPE_4),
 	.ipc_default		= SOF_IPC_TYPE_3,
 	.dspless_mode_supported	= true,		/* Only supported for HDaudio */
-	.vendor			= vendor_string,
-	.platform		= "ehl",
+	.default_fw_path = {
+		[SOF_IPC_TYPE_3] = "intel/sof",
+		[SOF_IPC_TYPE_4] = "intel/sof-ipc4/ehl",
+	},
+	.default_lib_path = {
+		[SOF_IPC_TYPE_4] = "intel/sof-ipc4-lib/ehl",
+	},
+	.default_tplg_path = {
+		[SOF_IPC_TYPE_3] = "intel/sof-tplg",
+		[SOF_IPC_TYPE_4] = "intel/sof-ipc4-tplg",
+	},
+	.default_fw_filename = {
+		[SOF_IPC_TYPE_3] = "sof-ehl.ri",
+		[SOF_IPC_TYPE_4] = "sof-ehl.ri",
+	},
 	.nocodec_tplg_filename = "sof-ehl-nocodec.tplg",
 	.ops = &sof_tgl_ops,
 	.ops_init = sof_tgl_ops_init,
@@ -92,8 +129,21 @@ static const struct sof_dev_desc adls_desc = {
 	.ipc_supported_mask	= BIT(SOF_IPC_TYPE_3) | BIT(SOF_IPC_TYPE_4),
 	.ipc_default		= SOF_IPC_TYPE_3,
 	.dspless_mode_supported	= true,		/* Only supported for HDaudio */
-	.vendor			= vendor_string,
-	.platform		= "adl-s",
+	.default_fw_path = {
+		[SOF_IPC_TYPE_3] = "intel/sof",
+		[SOF_IPC_TYPE_4] = "intel/sof-ipc4/adl-s",
+	},
+	.default_lib_path = {
+		[SOF_IPC_TYPE_4] = "intel/sof-ipc4-lib/adl-s",
+	},
+	.default_tplg_path = {
+		[SOF_IPC_TYPE_3] = "intel/sof-tplg",
+		[SOF_IPC_TYPE_4] = "intel/sof-ipc4-tplg",
+	},
+	.default_fw_filename = {
+		[SOF_IPC_TYPE_3] = "sof-adl-s.ri",
+		[SOF_IPC_TYPE_4] = "sof-adl-s.ri",
+	},
 	.nocodec_tplg_filename = "sof-adl-nocodec.tplg",
 	.ops = &sof_tgl_ops,
 	.ops_init = sof_tgl_ops_init,
@@ -112,8 +162,21 @@ static const struct sof_dev_desc adl_desc = {
 	.ipc_supported_mask	= BIT(SOF_IPC_TYPE_3) | BIT(SOF_IPC_TYPE_4),
 	.ipc_default		= SOF_IPC_TYPE_3,
 	.dspless_mode_supported	= true,		/* Only supported for HDaudio */
-	.vendor			= vendor_string,
-	.platform		= "adl",
+	.default_fw_path = {
+		[SOF_IPC_TYPE_3] = "intel/sof",
+		[SOF_IPC_TYPE_4] = "intel/sof-ipc4/adl",
+	},
+	.default_lib_path = {
+		[SOF_IPC_TYPE_4] = "intel/sof-ipc4-lib/adl",
+	},
+	.default_tplg_path = {
+		[SOF_IPC_TYPE_3] = "intel/sof-tplg",
+		[SOF_IPC_TYPE_4] = "intel/sof-ipc4-tplg",
+	},
+	.default_fw_filename = {
+		[SOF_IPC_TYPE_3] = "sof-adl.ri",
+		[SOF_IPC_TYPE_4] = "sof-adl.ri",
+	},
 	.nocodec_tplg_filename = "sof-adl-nocodec.tplg",
 	.ops = &sof_tgl_ops,
 	.ops_init = sof_tgl_ops_init,
@@ -132,8 +195,21 @@ static const struct sof_dev_desc adln_desc = {
 	.ipc_supported_mask	= BIT(SOF_IPC_TYPE_3) | BIT(SOF_IPC_TYPE_4),
 	.ipc_default		= SOF_IPC_TYPE_3,
 	.dspless_mode_supported	= true,		/* Only supported for HDaudio */
-	.vendor			= vendor_string,
-	.platform		= "adl-n",
+	.default_fw_path = {
+		[SOF_IPC_TYPE_3] = "intel/sof",
+		[SOF_IPC_TYPE_4] = "intel/sof-ipc4/adl-n",
+	},
+	.default_lib_path = {
+		[SOF_IPC_TYPE_4] = "intel/sof-ipc4-lib/adl-n",
+	},
+	.default_tplg_path = {
+		[SOF_IPC_TYPE_3] = "intel/sof-tplg",
+		[SOF_IPC_TYPE_4] = "intel/sof-ipc4-tplg",
+	},
+	.default_fw_filename = {
+		[SOF_IPC_TYPE_3] = "sof-adl-n.ri",
+		[SOF_IPC_TYPE_4] = "sof-adl-n.ri",
+	},
 	.nocodec_tplg_filename = "sof-adl-nocodec.tplg",
 	.ops = &sof_tgl_ops,
 	.ops_init = sof_tgl_ops_init,
@@ -152,8 +228,21 @@ static const struct sof_dev_desc rpls_desc = {
 	.ipc_supported_mask	= BIT(SOF_IPC_TYPE_3) | BIT(SOF_IPC_TYPE_4),
 	.ipc_default		= SOF_IPC_TYPE_3,
 	.dspless_mode_supported	= true,		/* Only supported for HDaudio */
-	.vendor			= vendor_string,
-	.platform		= "rpl-s",
+	.default_fw_path = {
+		[SOF_IPC_TYPE_3] = "intel/sof",
+		[SOF_IPC_TYPE_4] = "intel/sof-ipc4/rpl-s",
+	},
+	.default_lib_path = {
+		[SOF_IPC_TYPE_4] = "intel/sof-ipc4-lib/rpl-s",
+	},
+	.default_tplg_path = {
+		[SOF_IPC_TYPE_3] = "intel/sof-tplg",
+		[SOF_IPC_TYPE_4] = "intel/sof-ipc4-tplg",
+	},
+	.default_fw_filename = {
+		[SOF_IPC_TYPE_3] = "sof-rpl-s.ri",
+		[SOF_IPC_TYPE_4] = "sof-rpl-s.ri",
+	},
 	.nocodec_tplg_filename = "sof-rpl-nocodec.tplg",
 	.ops = &sof_tgl_ops,
 	.ops_init = sof_tgl_ops_init,
@@ -172,8 +261,21 @@ static const struct sof_dev_desc rpl_desc = {
 	.ipc_supported_mask	= BIT(SOF_IPC_TYPE_3) | BIT(SOF_IPC_TYPE_4),
 	.ipc_default		= SOF_IPC_TYPE_3,
 	.dspless_mode_supported	= true,		/* Only supported for HDaudio */
-	.vendor			= vendor_string,
-	.platform		= "rpl",
+	.default_fw_path = {
+		[SOF_IPC_TYPE_3] = "intel/sof",
+		[SOF_IPC_TYPE_4] = "intel/sof-ipc4/rpl",
+	},
+	.default_lib_path = {
+		[SOF_IPC_TYPE_4] = "intel/sof-ipc4-lib/rpl",
+	},
+	.default_tplg_path = {
+		[SOF_IPC_TYPE_3] = "intel/sof-tplg",
+		[SOF_IPC_TYPE_4] = "intel/sof-ipc4-tplg",
+	},
+	.default_fw_filename = {
+		[SOF_IPC_TYPE_3] = "sof-rpl.ri",
+		[SOF_IPC_TYPE_4] = "sof-rpl.ri",
+	},
 	.nocodec_tplg_filename = "sof-rpl-nocodec.tplg",
 	.ops = &sof_tgl_ops,
 	.ops_init = sof_tgl_ops_init,
