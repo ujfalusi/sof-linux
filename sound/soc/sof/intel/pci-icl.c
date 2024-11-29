@@ -19,8 +19,6 @@
 /* platform specific devices */
 #include "hda.h"
 
-static const char vendor_string[] = "intel";
-
 static const struct sof_dev_desc icl_desc = {
 	.machines               = snd_soc_acpi_intel_icl_machines,
 	.alt_machines		= snd_soc_acpi_intel_icl_sdw_machines,
@@ -33,8 +31,21 @@ static const struct sof_dev_desc icl_desc = {
 	.ipc_supported_mask	= BIT(SOF_IPC_TYPE_3) | BIT(SOF_IPC_TYPE_4),
 	.ipc_default		= SOF_IPC_TYPE_3,
 	.dspless_mode_supported	= true,		/* Only supported for HDaudio */
-	.vendor			= vendor_string,
-	.platform		= "icl",
+	.default_fw_path = {
+		[SOF_IPC_TYPE_3] = "intel/sof",
+		[SOF_IPC_TYPE_4] = "intel/avs/icl",
+	},
+	.default_lib_path = {
+		[SOF_IPC_TYPE_4] = "intel/avs-lib/icl",
+	},
+	.default_tplg_path = {
+		[SOF_IPC_TYPE_3] = "intel/sof-tplg",
+		[SOF_IPC_TYPE_4] = "intel/avs-tplg",
+	},
+	.default_fw_filename = {
+		[SOF_IPC_TYPE_3] = "sof-icl.ri",
+		[SOF_IPC_TYPE_4] = "dsp_basefw.bin",
+	},
 	.nocodec_tplg_filename = "sof-icl-nocodec.tplg",
 	.ops = &sof_icl_ops,
 	.ops_init = sof_icl_ops_init,
@@ -52,8 +63,21 @@ static const struct sof_dev_desc jsl_desc = {
 	.ipc_supported_mask	= BIT(SOF_IPC_TYPE_3) | BIT(SOF_IPC_TYPE_4),
 	.ipc_default		= SOF_IPC_TYPE_3,
 	.dspless_mode_supported	= true,		/* Only supported for HDaudio */
-	.vendor			= vendor_string,
-	.platform		= "jsl",
+	.default_fw_path = {
+		[SOF_IPC_TYPE_3] = "intel/sof",
+		[SOF_IPC_TYPE_4] = "intel/avs/jsl",
+	},
+	.default_lib_path = {
+		[SOF_IPC_TYPE_4] = "intel/avs-lib/jsl",
+	},
+	.default_tplg_path = {
+		[SOF_IPC_TYPE_3] = "intel/sof-tplg",
+		[SOF_IPC_TYPE_4] = "intel/avs-tplg",
+	},
+	.default_fw_filename = {
+		[SOF_IPC_TYPE_3] = "sof-jsl.ri",
+		[SOF_IPC_TYPE_4] = "dsp_basefw.bin",
+	},
 	.nocodec_tplg_filename = "sof-jsl-nocodec.tplg",
 	.ops = &sof_cnl_ops,
 	.ops_init = sof_cnl_ops_init,
