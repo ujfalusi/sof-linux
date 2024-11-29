@@ -39,8 +39,18 @@ static const struct sof_dev_desc ptl_desc = {
 	.ipc_default		= SOF_IPC_TYPE_4,
 	.dspless_mode_supported	= true,
 	.on_demand_dsp_boot	= true,
-	.vendor			= "intel",
-	.platform		= "ptl",
+	.default_fw_path = {
+		[SOF_IPC_TYPE_4] = "intel/sof-ipc4/ptl",
+	},
+	.default_lib_path = {
+		[SOF_IPC_TYPE_4] = "intel/sof-ipc4-lib/ptl",
+	},
+	.default_tplg_path = {
+		[SOF_IPC_TYPE_4] = "intel/sof-ipc4-tplg",
+	},
+	.default_fw_filename = {
+		[SOF_IPC_TYPE_4] = "sof-ptl.ri",
+	},
 	.nocodec_tplg_filename = "sof-ptl-nocodec.tplg",
 	.ops = &sof_ptl_ops,
 	.ops_init = sof_ptl_ops_init,
@@ -59,8 +69,18 @@ static const struct sof_dev_desc wcl_desc = {
 	.ipc_default		= SOF_IPC_TYPE_4,
 	.dspless_mode_supported	= true,
 	.on_demand_dsp_boot	= true,
-	.vendor			= "intel",
-	.platform		= "wcl",
+	.default_fw_path = {
+		[SOF_IPC_TYPE_4] = "intel/sof-ipc4/wcl",
+	},
+	.default_lib_path = {
+		[SOF_IPC_TYPE_4] = "intel/sof-ipc4-lib/wcl",
+	},
+	.default_tplg_path = {
+		[SOF_IPC_TYPE_4] = "intel/sof-ipc4-tplg",
+	},
+	.default_fw_filename = {
+		[SOF_IPC_TYPE_4] = "sof-wcl.ri",
+	},
 	.nocodec_tplg_filename = "sof-ptl-nocodec.tplg",
 	.ops = &sof_ptl_ops,
 	.ops_init = sof_ptl_ops_init,
