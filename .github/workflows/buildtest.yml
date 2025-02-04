@@ -50,6 +50,12 @@ jobs:
           sudo apt update
           sudo apt install -y libelf-dev
 
+      - name: Switch to gcc-14
+        run: |
+          sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-14 14
+          sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-14 14
+          gcc --version
+
       - name: build start
         run: |
           export ARCH=x86_64  KCFLAGS="-Wall -Werror -fanalyzer"
