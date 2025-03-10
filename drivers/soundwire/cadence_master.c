@@ -2044,11 +2044,11 @@ static const u8 sdw_crc8_lookup_msb[CRC8_TABLE_SIZE] = {
 #define SDW_CDNS_BRA_FOOTER_RESP		1 /* defined by MIPI */
 #define SDW_CDNS_BRA_FOOTER_RESP_PAD		1 /* Cadence only */
 
-#define SDW_CDNS_WRITE_PDI1_BUFFER_SIZE	\
-	((SDW_CDNS_BRA_HDR_RESP + SDW_CDNS_BRA_HDR_RESP_PAD +	\
+#define SDW_CDNS_WRITE_PDI1_BUFFER_SIZE							\
+	((SDW_CDNS_BRA_HDR_RESP + SDW_CDNS_BRA_HDR_RESP_PAD +				\
 	 SDW_CDNS_BRA_FOOTER_RESP + SDW_CDNS_BRA_FOOTER_RESP_PAD) * 2)
 
-#define SDW_CDNS_READ_PDI0_BUFFER_SIZE \
+#define SDW_CDNS_READ_PDI0_BUFFER_SIZE							\
 	((SDW_CDNS_BRA_HDR + SDW_CDNS_BRA_HDR_CRC + SDW_CDNS_BRA_HDR_CRC_PAD) * 2)
 
 static unsigned int sdw_cdns_bra_actual_data_size(unsigned int allocated_bytes_per_frame)

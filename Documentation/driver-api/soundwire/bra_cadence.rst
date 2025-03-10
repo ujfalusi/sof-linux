@@ -64,4 +64,3 @@ write command followed by a read command.
 	+   |   |        |  pad          |  RD Data CRC  |
 	+ 0 | 1 |        |  pad          |  RD Ftr Rsp   |
 	+---+---+--------+---------------+---------------+
-
