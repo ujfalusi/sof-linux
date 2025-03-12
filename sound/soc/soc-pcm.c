@@ -144,7 +144,6 @@ static inline const char *soc_codec_dai_name(struct snd_soc_pcm_runtime *rtd)
 	return (rtd)->dai_link->num_codecs == 1 ? snd_soc_rtd_to_codec(rtd, 0)->name : "multicodec";
 }
 
-#ifdef CONFIG_DEBUG_FS
 static const char *dpcm_state_string(enum snd_soc_dpcm_state state)
 {
 	switch (state) {
@@ -173,6 +172,7 @@ static const char *dpcm_state_string(enum snd_soc_dpcm_state state)
 	return "unknown";
 }
 
+#ifdef CONFIG_DEBUG_FS
 static ssize_t dpcm_show_state(struct snd_soc_pcm_runtime *fe,
 			       int stream, char *buf, size_t size)
 {
@@ -603,13 +603,8 @@ static void soc_pcm_hw_update_chan(struct snd_pcm_hardware *hw,
 static void soc_pcm_hw_update_format(struct snd_pcm_hardware *hw,
 				     const struct snd_soc_pcm_stream *p)
 {
-	hw->formats &= p->formats;
-}
-
-static void soc_pcm_hw_update_subformat(struct snd_pcm_hardware *hw,
-					const struct snd_soc_pcm_stream *p)
-{
-	hw->subformats &= p->subformats;
+	hw->formats	&= p->formats;
+	hw->subformats	&= p->subformats;
 }
 
 /**
@@ -650,7 +645,6 @@ int snd_soc_runtime_calc_hw(struct snd_soc_pcm_runtime *rtd,
 		soc_pcm_hw_update_chan(hw, cpu_stream);
 		soc_pcm_hw_update_rate(hw, cpu_stream);
 		soc_pcm_hw_update_format(hw, cpu_stream);
-		soc_pcm_hw_update_subformat(hw, cpu_stream);
 	}
 	cpu_chan_min = hw->channels_min;
 	cpu_chan_max = hw->channels_max;
@@ -672,7 +666,6 @@ int snd_soc_runtime_calc_hw(struct snd_soc_pcm_runtime *rtd,
 		soc_pcm_hw_update_chan(hw, codec_stream);
 		soc_pcm_hw_update_rate(hw, codec_stream);
 		soc_pcm_hw_update_format(hw, codec_stream);
-		soc_pcm_hw_update_subformat(hw, codec_stream);
 	}
 
 	/* Verify both a valid CPU DAI and a valid CODEC DAI were found */
@@ -956,7 +949,7 @@ static int __soc_pcm_prepare(struct snd_soc_pcm_runtime *rtd,
 			SND_SOC_DAPM_STREAM_START);
 
 	for_each_rtd_dais(rtd, i, dai) {
-		if (dai->driver->ops && !dai->driver->ops->mute_unmute_on_trigger)
+		if (!snd_soc_dai_mute_is_ctrled_at_trigger(dai))
 			snd_soc_dai_digital_mute(dai, 0, substream->stream);
 	}
 
@@ -1014,7 +1007,7 @@ static int soc_pcm_hw_clean(struct snd_soc_pcm_runtime *rtd,
 			soc_pcm_set_dai_params(dai, NULL);
 
 		if (snd_soc_dai_stream_active(dai, substream->stream) == 1) {
-			if (dai->driver->ops && !dai->driver->ops->mute_unmute_on_trigger)
+			if (!snd_soc_dai_mute_is_ctrled_at_trigger(dai))
 				snd_soc_dai_digital_mute(dai, 1, substream->stream);
 		}
 	}
@@ -1643,9 +1636,9 @@ void dpcm_be_dai_stop(struct snd_soc_pcm_runtime *fe, int stream,
 			continue;
 
 		if (be->dpcm[stream].users == 0) {
-			dev_err(be->dev, "ASoC: no users %s at close - state %d\n",
+			dev_err(be->dev, "ASoC: no users %s at close - state %s\n",
 				snd_pcm_direction_name(stream),
-				be->dpcm[stream].state);
+				dpcm_state_string(be->dpcm[stream].state));
 			continue;
 		}
 
@@ -1694,9 +1687,9 @@ int dpcm_be_dai_startup(struct snd_soc_pcm_runtime *fe, int stream)
 
 		/* first time the dpcm is open ? */
 		if (be->dpcm[stream].users == DPCM_MAX_BE_USERS) {
-			dev_err(be->dev, "ASoC: too many users %s at open %d\n",
+			dev_err(be->dev, "ASoC: too many users %s at open %s\n",
 				snd_pcm_direction_name(stream),
-				be->dpcm[stream].state);
+				dpcm_state_string(be->dpcm[stream].state));
 			continue;
 		}
 
@@ -1715,9 +1708,9 @@ int dpcm_be_dai_startup(struct snd_soc_pcm_runtime *fe, int stream)
 		if (err < 0) {
 			be->dpcm[stream].users--;
 			if (be->dpcm[stream].users < 0)
-				dev_err(be->dev, "ASoC: no users %s at unwind %d\n",
+				dev_err(be->dev, "ASoC: no users %s at unwind %s\n",
 					snd_pcm_direction_name(stream),
-					be->dpcm[stream].state);
+					dpcm_state_string(be->dpcm[stream].state));
 
 			be->dpcm[stream].state = SND_SOC_DPCM_STATE_CLOSE;
 			goto unwind;
@@ -1765,7 +1758,6 @@ static void dpcm_runtime_setup_fe(struct snd_pcm_substream *substream)
 		soc_pcm_hw_update_rate(hw, cpu_stream);
 		soc_pcm_hw_update_chan(hw, cpu_stream);
 		soc_pcm_hw_update_format(hw, cpu_stream);
-		soc_pcm_hw_update_subformat(hw, cpu_stream);
 	}
 
 }
@@ -1803,7 +1795,6 @@ static void dpcm_runtime_setup_be_format(struct snd_pcm_substream *substream)
 			codec_stream = snd_soc_dai_get_pcm_stream(dai, stream);
 
 			soc_pcm_hw_update_format(hw, codec_stream);
-			soc_pcm_hw_update_subformat(hw, codec_stream);
 		}
 	}
 }
@@ -2581,8 +2572,8 @@ static int dpcm_run_update_startup(struct snd_soc_pcm_runtime *fe, int stream)
 	/* Only start the BE if the FE is ready */
 	if (fe->dpcm[stream].state == SND_SOC_DPCM_STATE_HW_FREE ||
 		fe->dpcm[stream].state == SND_SOC_DPCM_STATE_CLOSE) {
-		dev_err(fe->dev, "ASoC: FE %s is not ready %d\n",
-			fe->dai_link->name, fe->dpcm[stream].state);
+		dev_err(fe->dev, "ASoC: FE %s is not ready %s\n",
+			fe->dai_link->name, dpcm_state_string(fe->dpcm[stream].state));
 		ret = -EINVAL;
 		goto disconnect;
 	}
