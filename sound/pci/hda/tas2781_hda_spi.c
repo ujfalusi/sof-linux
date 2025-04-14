@@ -52,7 +52,7 @@
 	.access = SNDRV_CTL_ELEM_ACCESS_TLV_READ | \
 		SNDRV_CTL_ELEM_ACCESS_READWRITE, \
 	.tlv.p = (tlv_array), \
-	.info = snd_soc_info_volsw_range, \
+	.info = snd_soc_info_volsw, \
 	.get = xhandler_get, .put = xhandler_put, \
 	.private_value = (unsigned long)&(struct soc_mixer_control) { \
 		.reg = xreg, .rreg = xreg, \
@@ -1003,8 +1003,7 @@ static void tasdev_fw_ready(const struct firmware *fmw, void *context)
 	 */
 
 out:
-	if (fmw)
-		release_firmware(fmw);
+	release_firmware(fmw);
 	pm_runtime_mark_last_busy(tas_hda->priv->dev);
 	pm_runtime_put_autosuspend(tas_hda->priv->dev);
 }
