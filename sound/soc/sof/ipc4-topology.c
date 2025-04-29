@@ -1823,6 +1823,12 @@ snd_sof_get_nhlt_endpoint_data(struct snd_sof_dev *sdev, struct snd_sof_dai *dai
 						      dai_index);
 		if (dev_type < 0)
 			return dev_type;
+
+		if (params_width(params) != bit_depth) {
+			format_change = true;
+			dev_dbg(sdev->dev, "SSP sample width change from %d to %d\n",
+				params_width(params), bit_depth);
+		}
 		break;
 	default:
 		return 0;
