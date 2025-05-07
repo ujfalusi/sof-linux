@@ -2507,7 +2507,7 @@ int snd_sof_load_topology(struct snd_soc_component *scomp, const char *file)
 		return -ENOMEM;
 
 	if (!sof_pdata->disable_function_topology && !disable_function_topology &&
-	    sof_pdata->machine->get_function_tplg_files) {
+	    sof_pdata->machine && sof_pdata->machine->get_function_tplg_files) {
 		tplg_cnt = sof_pdata->machine->get_function_tplg_files(scomp->card,
 								       sof_pdata->machine,
 								       tplg_filename_prefix,
