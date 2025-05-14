@@ -38,6 +38,7 @@ config X86_64
 	select ARCH_HAS_ELFCORE_COMPAT
 	select ZONE_DMA32
 	select EXECMEM if DYNAMIC_FTRACE
+	select ACPI_MRRM if ACPI
 
 config FORCE_DYNAMIC_FTRACE
 	def_bool y
@@ -2368,6 +2369,7 @@ config STRICT_SIGALTSTACK_SIZE
 config CFI_AUTO_DEFAULT
 	bool "Attempt to use FineIBT by default at boot time"
 	depends on FINEIBT
+	depends on !RUST || RUSTC_VERSION >= 108800
 	default y
 	help
 	  Attempt to use FineIBT by default at boot time. If enabled,
