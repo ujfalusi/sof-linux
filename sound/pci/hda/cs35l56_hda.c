@@ -67,7 +67,7 @@ static void cs35l56_hda_play(struct cs35l56_hda *cs35l56)
 	if (ret == 0) {
 		/* Wait for firmware to enter PS0 power state */
 		ret = regmap_read_poll_timeout(cs35l56->base.regmap,
-					       CS35L56_TRANSDUCER_ACTUAL_PS,
+					       cs35l56->base.fw_reg->transducer_actual_ps,
 					       val, (val == CS35L56_PS0),
 					       CS35L56_PS0_POLL_US,
 					       CS35L56_PS0_TIMEOUT_US);
@@ -179,7 +179,7 @@ static int cs35l56_hda_mixer_info(struct snd_kcontrol *kcontrol,
 static int cs35l56_hda_mixer_get(struct snd_kcontrol *kcontrol,
 				 struct snd_ctl_elem_value *ucontrol)
 {
-	struct cs35l56_hda *cs35l56 = (struct cs35l56_hda *)kcontrol->private_data;
+	struct cs35l56_hda *cs35l56 = snd_kcontrol_chip(kcontrol);
 	unsigned int reg_val;
 	int i;
 
@@ -201,7 +201,7 @@ static int cs35l56_hda_mixer_get(struct snd_kcontrol *kcontrol,
 static int cs35l56_hda_mixer_put(struct snd_kcontrol *kcontrol,
 				 struct snd_ctl_elem_value *ucontrol)
 {
-	struct cs35l56_hda *cs35l56 = (struct cs35l56_hda *)kcontrol->private_data;
+	struct cs35l56_hda *cs35l56 = snd_kcontrol_chip(kcontrol);
 	unsigned int item = ucontrol->value.enumerated.item[0];
 	bool changed;
 
@@ -230,13 +230,14 @@ static int cs35l56_hda_posture_info(struct snd_kcontrol *kcontrol,
 static int cs35l56_hda_posture_get(struct snd_kcontrol *kcontrol,
 				   struct snd_ctl_elem_value *ucontrol)
 {
-	struct cs35l56_hda *cs35l56 = (struct cs35l56_hda *)kcontrol->private_data;
+	struct cs35l56_hda *cs35l56 = snd_kcontrol_chip(kcontrol);
 	unsigned int pos;
 	int ret;
 
 	cs35l56_hda_wait_dsp_ready(cs35l56);
 
-	ret = regmap_read(cs35l56->base.regmap, CS35L56_MAIN_POSTURE_NUMBER, &pos);
+	ret = regmap_read(cs35l56->base.regmap,
+			  cs35l56->base.fw_reg->posture_number, &pos);
 	if (ret)
 		return ret;
 
@@ -248,7 +249,7 @@ static int cs35l56_hda_posture_get(struct snd_kcontrol *kcontrol,
 static int cs35l56_hda_posture_put(struct snd_kcontrol *kcontrol,
 				   struct snd_ctl_elem_value *ucontrol)
 {
-	struct cs35l56_hda *cs35l56 = (struct cs35l56_hda *)kcontrol->private_data;
+	struct cs35l56_hda *cs35l56 = snd_kcontrol_chip(kcontrol);
 	unsigned long pos = ucontrol->value.integer.value[0];
 	bool changed;
 	int ret;
@@ -259,10 +260,8 @@ static int cs35l56_hda_posture_put(struct snd_kcontrol *kcontrol,
 
 	cs35l56_hda_wait_dsp_ready(cs35l56);
 
-	ret = regmap_update_bits_check(cs35l56->base.regmap,
-				       CS35L56_MAIN_POSTURE_NUMBER,
-				       CS35L56_MAIN_POSTURE_MASK,
-				       pos, &changed);
+	ret = regmap_update_bits_check(cs35l56->base.regmap, cs35l56->base.fw_reg->posture_number,
+				       CS35L56_MAIN_POSTURE_MASK, pos, &changed);
 	if (ret)
 		return ret;
 
@@ -297,14 +296,14 @@ static int cs35l56_hda_vol_info(struct snd_kcontrol *kcontrol,
 static int cs35l56_hda_vol_get(struct snd_kcontrol *kcontrol,
 			       struct snd_ctl_elem_value *ucontrol)
 {
-	struct cs35l56_hda *cs35l56 = (struct cs35l56_hda *)kcontrol->private_data;
+	struct cs35l56_hda *cs35l56 = snd_kcontrol_chip(kcontrol);
 	unsigned int raw_vol;
 	int vol;
 	int ret;
 
 	cs35l56_hda_wait_dsp_ready(cs35l56);
 
-	ret = regmap_read(cs35l56->base.regmap, CS35L56_MAIN_RENDER_USER_VOLUME, &raw_vol);
+	ret = regmap_read(cs35l56->base.regmap, cs35l56->base.fw_reg->user_volume, &raw_vol);
 
 	if (ret)
 		return ret;
@@ -323,7 +322,7 @@ static int cs35l56_hda_vol_get(struct snd_kcontrol *kcontrol,
 static int cs35l56_hda_vol_put(struct snd_kcontrol *kcontrol,
 			       struct snd_ctl_elem_value *ucontrol)
 {
-	struct cs35l56_hda *cs35l56 = (struct cs35l56_hda *)kcontrol->private_data;
+	struct cs35l56_hda *cs35l56 = snd_kcontrol_chip(kcontrol);
 	long vol = ucontrol->value.integer.value[0];
 	unsigned int raw_vol;
 	bool changed;
@@ -338,10 +337,8 @@ static int cs35l56_hda_vol_put(struct snd_kcontrol *kcontrol,
 
 	cs35l56_hda_wait_dsp_ready(cs35l56);
 
-	ret = regmap_update_bits_check(cs35l56->base.regmap,
-				       CS35L56_MAIN_RENDER_USER_VOLUME,
-				       CS35L56_MAIN_RENDER_USER_VOLUME_MASK,
-				       raw_vol, &changed);
+	ret = regmap_update_bits_check(cs35l56->base.regmap, cs35l56->base.fw_reg->user_volume,
+				       CS35L56_MAIN_RENDER_USER_VOLUME_MASK, raw_vol, &changed);
 	if (ret)
 		return ret;
 
@@ -664,7 +661,8 @@ static void cs35l56_hda_fw_load(struct cs35l56_hda *cs35l56)
 
 	regcache_sync(cs35l56->base.regmap);
 
-	regmap_clear_bits(cs35l56->base.regmap, CS35L56_PROTECTION_STATUS,
+	regmap_clear_bits(cs35l56->base.regmap,
+			  cs35l56->base.fw_reg->prot_sts,
 			  CS35L56_FIRMWARE_MISSING);
 	cs35l56->base.fw_patched = true;
 
