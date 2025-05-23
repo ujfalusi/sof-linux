@@ -49,7 +49,7 @@
 #define TASDEVICE_REG_SWRESET		TASDEVICE_REG(0x0, 0x0, 0x01)
 #define TASDEVICE_REG_SWRESET_RESET	BIT(0)
 
-/* I2C Checksum */
+/* Checksum */
 #define TASDEVICE_CHECKSUM_REG		TASDEVICE_REG(0x0, 0x0, 0x7e)
 
 /* XM_340 */
@@ -105,11 +105,6 @@
 #define TAS2781_RUNTIME_RE_REG_TF	TASDEVICE_REG(0x64, 0x62, 0x48)
 #define TAS2781_RUNTIME_RE_REG		TASDEVICE_REG(0x64, 0x63, 0x44)
 
-#define TASDEVICE_CMD_SING_W		0x1
-#define TASDEVICE_CMD_BURST		0x2
-#define TASDEVICE_CMD_DELAY		0x3
-#define TASDEVICE_CMD_FIELD_W		0x4
-
 enum audio_device {
 	TAS2563,
 	TAS2781,
@@ -119,11 +114,6 @@ enum dspbin_type {
 	TASDEV_BASIC,
 	TASDEV_ALPHA,
 	TASDEV_BETA,
-};
-
-enum device_catlog_id {
-	LENOVO = 0,
-	OTHERS
 };
 
 struct bulk_reg_val {
@@ -195,7 +185,6 @@ struct tasdevice_priv {
 	struct regmap *regmap;
 	struct device *dev;
 
-	enum device_catlog_id catlog_id;
 	unsigned char cal_binaryname[TASDEVICE_MAX_CHANNELS][64];
 	unsigned char crc8_lkp_tbl[CRC8_TABLE_SIZE];
 	unsigned char coef_binaryname[64];
@@ -246,8 +235,6 @@ struct tasdevice_priv {
 	int (*dev_bulk_read)(struct tasdevice_priv *tas_priv,
 		unsigned short chn, unsigned int reg, unsigned char *p_data,
 		unsigned int n_length);
-	int (*save_calibration)(struct tasdevice_priv *tas_priv);
-	void (*apply_calibration)(struct tasdevice_priv *tas_priv);
 };
 
 int tasdevice_dev_read(struct tasdevice_priv *tas_priv,
@@ -261,6 +248,4 @@ int tasdevice_dev_bulk_write(
 	struct tasdevice_priv *tas_priv, unsigned short chn,
 	unsigned int reg, unsigned char *p_data, unsigned int n_length);
 void tasdevice_remove(struct tasdevice_priv *tas_priv);
-int tasdevice_save_calibration(struct tasdevice_priv *tas_priv);
-void tasdevice_apply_calibration(struct tasdevice_priv *tas_priv);
 #endif /* __TAS2781_H__ */
