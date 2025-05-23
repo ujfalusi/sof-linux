@@ -220,6 +220,11 @@ static int sof_resume(struct device *dev, bool runtime_resume)
 	if (on_demand_boot) {
 		/* Only change the fw_state to PREPARE but skip booting */
 		sof_set_fw_state(sdev, SOF_FW_BOOT_PREPARE);
+
+		/* MTL needs this fr SDW */
+		snd_sof_dsp_pre_fw_run(sdev);
+		snd_sof_dsp_post_fw_run(sdev);
+
 		return 0;
 	}
 
