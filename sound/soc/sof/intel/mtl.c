@@ -319,6 +319,9 @@ static int mtl_dsp_post_fw_run(struct snd_sof_dev *sdev)
 		}
 	}
 
+	if (sdev->pdata->desc->on_demand_dsp_boot)
+		mtl_enable_interrupts(sdev, true);
+
 	hda_sdw_int_enable(sdev, true);
 	return 0;
 }
