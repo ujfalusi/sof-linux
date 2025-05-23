@@ -40,6 +40,7 @@ static const struct sof_dev_desc mtl_desc = {
 	.ipc_supported_mask	= BIT(SOF_IPC_TYPE_4),
 	.ipc_default		= SOF_IPC_TYPE_4,
 	.dspless_mode_supported	= true,		/* Only supported for HDaudio */
+	.on_demand_dsp_boot	= true,
 	.default_fw_path = {
 		[SOF_IPC_TYPE_4] = "intel/sof-ipc4/mtl",
 	},
@@ -70,6 +71,7 @@ static const struct sof_dev_desc arl_desc = {
 	.ipc_supported_mask     = BIT(SOF_IPC_TYPE_4),
 	.ipc_default            = SOF_IPC_TYPE_4,
 	.dspless_mode_supported = true,         /* Only supported for HDaudio */
+	.on_demand_dsp_boot	= true,
 	.default_fw_path = {
 		[SOF_IPC_TYPE_4] = "intel/sof-ipc4/arl",
 	},
@@ -100,6 +102,7 @@ static const struct sof_dev_desc arl_s_desc = {
 	.ipc_supported_mask     = BIT(SOF_IPC_TYPE_4),
 	.ipc_default            = SOF_IPC_TYPE_4,
 	.dspless_mode_supported = true,         /* Only supported for HDaudio */
+	.on_demand_dsp_boot	= true,
 	.default_fw_path = {
 		[SOF_IPC_TYPE_4] = "intel/sof-ipc4/arl-s",
 	},
