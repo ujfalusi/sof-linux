@@ -2124,6 +2124,8 @@ int sdw_stream_remove_master(struct sdw_bus *bus,
 }
 EXPORT_SYMBOL(sdw_stream_remove_master);
 
+#define CODEC_INIT_TIMEOUT 500
+
 /**
  * sdw_stream_add_slave() - Allocate and add master/slave runtime to a stream
  *
@@ -2147,8 +2149,18 @@ int sdw_stream_add_slave(struct sdw_slave *slave,
 	struct sdw_master_runtime *m_rt;
 	bool alloc_master_rt = false;
 	bool alloc_slave_rt = false;
+	unsigned long time;
 
 	int ret;
+
+	time = wait_for_completion_timeout(&slave->initialization_complete,
+					   msecs_to_jiffies(CODEC_INIT_TIMEOUT));
+	if (!time) {
+		dev_err(&slave->dev, "%s: Initialization not complete, timed out\n", __func__);
+		sdw_show_ping_status(slave->bus, true);
+
+		return -ETIMEDOUT;
+	}
 
 	mutex_lock(&slave->bus->bus_lock);
 
