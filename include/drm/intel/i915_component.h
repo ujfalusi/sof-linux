@@ -51,6 +51,12 @@ struct i915_audio_component {
 	 * @aud_sample_rate: the array of audio sample rate per port
 	 */
 	int aud_sample_rate[MAX_PORTS];
+
+	/**
+	 * @add_device_link: Add device link for HDMI audio
+	 */
+	bool add_device_link:1;
+
 };
 
 #endif /* _I915_COMPONENT_H_ */

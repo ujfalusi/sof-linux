@@ -1260,10 +1260,12 @@ static int intel_audio_component_bind(struct device *drv_kdev,
 	if (drm_WARN_ON(display->drm, acomp->base.ops || acomp->base.dev))
 		return -EEXIST;
 
-	if (drm_WARN_ON(display->drm,
-			!device_link_add(hda_kdev, drv_kdev,
-					 DL_FLAG_STATELESS)))
-		return -ENOMEM;
+	if (acomp->add_device_link) {
+		if (drm_WARN_ON(display->drm,
+				!device_link_add(hda_kdev, drv_kdev,
+						DL_FLAG_STATELESS)))
+			return -ENOMEM;
+	}
 
 	drm_modeset_lock_all(display->drm);
 	acomp->base.ops = &intel_audio_component_ops;
@@ -1289,7 +1291,8 @@ static void intel_audio_component_unbind(struct device *drv_kdev,
 	display->audio.component = NULL;
 	drm_modeset_unlock_all(display->drm);
 
-	device_link_remove(hda_kdev, drv_kdev);
+	if (acomp->add_device_link)
+		device_link_remove(hda_kdev, drv_kdev);
 
 	if (display->audio.power_refcount)
 		drm_err(display->drm,

@@ -118,8 +118,13 @@ static int i915_component_master_match(struct device *dev, int subcomponent,
 	if ((!strcmp(dev->driver->name, "i915") ||
 		 !strcmp(dev->driver->name, "xe")) &&
 	    subcomponent == I915_COMPONENT_AUDIO &&
-	    connectivity_check(i915_pci, hdac_pci))
+	    connectivity_check(i915_pci, hdac_pci)) {
+		struct i915_audio_component *acomp = bus->audio_component;
+
+		acomp->add_device_link = !bus->i915_no_device_link;
+
 		return 1;
+	}
 
 	return 0;
 }
