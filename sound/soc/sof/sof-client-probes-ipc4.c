@@ -9,7 +9,6 @@
 #include <sound/sof/ipc4/header.h>
 #include <uapi/sound/sof/header.h>
 #include "sof-audio.h"
-#include "sof-priv.h"
 #include "ipc4-priv.h"
 #include "sof-client.h"
 #include "sof-client-probes.h"
@@ -238,7 +237,7 @@ static int ipc4_probes_points_info(struct sof_client_dev *cdev,
 
 	msg.extension = SOF_IPC4_MOD_EXT_MSG_PARAM_ID(param_id);
 
-	msg.data_size = cdev->sdev->ipc->max_payload_size;
+	msg.data_size = sof_client_get_ipc_max_payload_size(cdev);
 	msg.data_ptr = kzalloc(msg.data_size, GFP_KERNEL);
 	if (!msg.data_ptr)
 		return -ENOMEM;
