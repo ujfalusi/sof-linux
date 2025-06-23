@@ -412,6 +412,14 @@ static inline int snd_sof_dsp_send_msg(struct snd_sof_dev *sdev,
 	return sof_ops(sdev)->send_msg(sdev, msg);
 }
 
+/* ipc */
+static inline void snd_sof_dsp_msg_timeout_handler(struct snd_sof_dev *sdev,
+						   struct snd_sof_ipc_msg *msg)
+{
+	if (sof_ops(sdev)->msg_timeout_handler)
+		sof_ops(sdev)->msg_timeout_handler(sdev, msg);
+}
+
 /* host PCM ops */
 static inline int
 snd_sof_pcm_platform_open(struct snd_sof_dev *sdev,

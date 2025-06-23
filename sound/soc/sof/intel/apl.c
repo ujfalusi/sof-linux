@@ -71,6 +71,7 @@ int sof_apl_ops_init(struct snd_sof_dev *sdev)
 
 		/* ipc */
 		sof_apl_ops.send_msg	= hda_dsp_ipc4_send_msg;
+		sof_apl_ops.msg_timeout_handler = hda_dsp_ipc4_msg_timeout_handler;
 
 		/* debug */
 		sof_apl_ops.ipc_dump	= hda_ipc4_dump;

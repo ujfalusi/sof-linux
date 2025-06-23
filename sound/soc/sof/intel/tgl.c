@@ -109,6 +109,7 @@ int sof_tgl_ops_init(struct snd_sof_dev *sdev)
 
 		/* ipc */
 		sof_tgl_ops.send_msg	= cnl_ipc4_send_msg;
+		sof_tgl_ops.msg_timeout_handler = hda_dsp_ipc4_msg_timeout_handler;
 
 		/* debug */
 		sof_tgl_ops.ipc_dump	= cnl_ipc4_dump;
