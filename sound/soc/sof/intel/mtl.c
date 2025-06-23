@@ -717,6 +717,7 @@ int sof_mtl_set_ops(struct snd_sof_dev *sdev, struct snd_sof_dsp_ops *dsp_ops)
 
 	/* ipc */
 	dsp_ops->send_msg = mtl_ipc_send_msg;
+	dsp_ops->msg_timeout_handler = hda_dsp_ipc4_msg_timeout_handler;
 	dsp_ops->get_mailbox_offset = mtl_dsp_ipc_get_mailbox_offset;
 	dsp_ops->get_window_offset = mtl_dsp_ipc_get_window_offset;
 

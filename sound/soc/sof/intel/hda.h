@@ -1024,6 +1024,8 @@ bool hda_ipc4_tx_is_busy(struct snd_sof_dev *sdev);
 void hda_dsp_ipc4_schedule_d0i3_work(struct sof_intel_hda_dev *hdev,
 				     struct snd_sof_ipc_msg *msg);
 int hda_dsp_ipc4_send_msg(struct snd_sof_dev *sdev, struct snd_sof_ipc_msg *msg);
+void hda_dsp_ipc4_msg_timeout_handler(struct snd_sof_dev *sdev,
+				      struct snd_sof_ipc_msg *msg);
 void hda_ipc4_dump(struct snd_sof_dev *sdev);
 extern struct sdw_intel_ops sdw_callback;
 

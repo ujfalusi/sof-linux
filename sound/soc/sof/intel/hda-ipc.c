@@ -128,6 +128,16 @@ int hda_dsp_ipc4_send_msg(struct snd_sof_dev *sdev, struct snd_sof_ipc_msg *msg)
 }
 EXPORT_SYMBOL_NS(hda_dsp_ipc4_send_msg, "SND_SOC_SOF_INTEL_HDA_COMMON");
 
+void hda_dsp_ipc4_msg_timeout_handler(struct snd_sof_dev *sdev,
+				      struct snd_sof_ipc_msg *msg)
+{
+	struct sof_intel_hda_dev *hdev = sdev->pdata->hw_pdata;
+
+	if (hdev->delayed_ipc_tx_msg == msg)
+		hdev->delayed_ipc_tx_msg = NULL;
+}
+EXPORT_SYMBOL_NS(hda_dsp_ipc4_msg_timeout_handler, "SND_SOC_SOF_INTEL_HDA_COMMON");
+
 void hda_dsp_ipc_get_reply(struct snd_sof_dev *sdev)
 {
 	struct snd_sof_ipc_msg *msg = sdev->msg;

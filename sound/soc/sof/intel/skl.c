@@ -79,6 +79,7 @@ int sof_skl_ops_init(struct snd_sof_dev *sdev)
 
 	/* ipc */
 	sof_skl_ops.send_msg	= hda_dsp_ipc4_send_msg;
+	sof_skl_ops.msg_timeout_handler = hda_dsp_ipc4_msg_timeout_handler;
 
 	/* set DAI driver ops */
 	hda_set_dai_drv_ops(sdev, &sof_skl_ops);
