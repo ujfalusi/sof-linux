@@ -225,6 +225,8 @@ struct snd_sof_dsp_ops {
 	/* ipc */
 	int (*send_msg)(struct snd_sof_dev *sof_dev,
 			struct snd_sof_ipc_msg *msg); /* mandatory */
+	void (*msg_timeout_handler)(struct snd_sof_dev *sof_dev,
+				    struct snd_sof_ipc_msg *msg); /* optional */
 
 	/* FW loading */
 	int (*load_firmware)(struct snd_sof_dev *sof_dev, const char *fw_filename); /* mandatory */
