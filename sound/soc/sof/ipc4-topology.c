@@ -1334,6 +1334,22 @@ static int sof_ipc4_widget_assign_instance_id(struct snd_sof_dev *sdev,
 	return 0;
 }
 
+static u32 sof_ipc4_fmt_cfg_to_type(u32 fmt_cfg)
+{
+	/* Fetch  the sample type from the fmt for 8 and 32 bit formats */
+	u32 __bits = SOF_IPC4_AUDIO_FORMAT_CFG_V_BIT_DEPTH(fmt_cfg);
+	if (__bits == 8 || __bits == 32)
+		return SOF_IPC4_AUDIO_FORMAT_CFG_SAMPLE_TYPE(fmt_cfg);
+
+	/*
+	 * Return LSB integer type for 20 and 24 formats as the firmware is
+	 * handling the LSB/MSB alignement internally, for the kernel this
+	 * should not be taken into account, we treat them as LSB to match with
+	 * the format we support on the PCM side.
+	 */
+	return SOF_IPC4_TYPE_LSB_INTEGER;
+}
+
 /* update hw_params based on the audio stream format */
 static int sof_ipc4_update_hw_params(struct snd_sof_dev *sdev, struct snd_pcm_hw_params *params,
 				     struct sof_ipc4_audio_format *fmt, u32 param_to_update)
@@ -1342,7 +1358,7 @@ static int sof_ipc4_update_hw_params(struct snd_sof_dev *sdev, struct snd_pcm_hw
 
 	if (param_to_update & BIT(SNDRV_PCM_HW_PARAM_FORMAT)) {
 		int valid_bits = SOF_IPC4_AUDIO_FORMAT_CFG_V_BIT_DEPTH(fmt->fmt_cfg);
-		int type = SOF_IPC4_AUDIO_FORMAT_CFG_SAMPLE_TYPE(fmt->fmt_cfg);
+		int type = sof_ipc4_fmt_cfg_to_type(fmt->fmt_cfg);
 		snd_pcm_format_t snd_fmt;
 		struct snd_mask *m;
 
@@ -1475,15 +1491,17 @@ static int sof_ipc4_init_output_audio_fmt(struct snd_sof_dev *sdev,
 		_out_rate = fmt->sampling_frequency;
 		_out_channels = SOF_IPC4_AUDIO_FORMAT_CFG_CHANNELS_COUNT(fmt->fmt_cfg);
 		_out_valid_bits = SOF_IPC4_AUDIO_FORMAT_CFG_V_BIT_DEPTH(fmt->fmt_cfg);
-		_out_type = SOF_IPC4_AUDIO_FORMAT_CFG_SAMPLE_TYPE(fmt->fmt_cfg);
+		_out_type = sof_ipc4_fmt_cfg_to_type(fmt->fmt_cfg);
 
 		if (_out_rate == out_ref_rate && _out_channels == out_ref_channels &&
 		    _out_valid_bits == out_ref_valid_bits && _out_type == out_ref_type)
 			goto out_fmt;
 	}
 
-	dev_err(sdev->dev, "%s: Unsupported audio format: %uHz, %ubit, %u channels\n",
-		__func__, out_ref_rate, out_ref_valid_bits, out_ref_channels);
+	dev_err(sdev->dev,
+		"%s: Unsupported audio format: %uHz, %ubit, %u channels, type: %d\n",
+		__func__, out_ref_rate, out_ref_valid_bits, out_ref_channels,
+		out_ref_type);
 
 	return -EINVAL;
 
@@ -1583,15 +1601,17 @@ static int sof_ipc4_init_input_audio_fmt(struct snd_sof_dev *sdev,
 		rate = fmt->sampling_frequency;
 		channels = SOF_IPC4_AUDIO_FORMAT_CFG_CHANNELS_COUNT(fmt->fmt_cfg);
 		valid_bits = SOF_IPC4_AUDIO_FORMAT_CFG_V_BIT_DEPTH(fmt->fmt_cfg);
-		type = SOF_IPC4_AUDIO_FORMAT_CFG_SAMPLE_TYPE(fmt->fmt_cfg);
+		type = sof_ipc4_fmt_cfg_to_type(fmt->fmt_cfg);
 		if (params_rate(params) == rate && params_channels(params) == channels &&
 		    sample_valid_bits == valid_bits && sample_type == type)
 			break;
 	}
 
 	if (i == pin_fmts_size) {
-		dev_err(sdev->dev, "%s: Unsupported audio format: %uHz, %ubit, %u channels\n",
-			__func__, params_rate(params), sample_valid_bits, params_channels(params));
+		dev_err(sdev->dev,
+			"%s: Unsupported audio format: %uHz, %ubit, %u channels, type: %d\n",
+			__func__, params_rate(params), sample_valid_bits,
+			params_channels(params), sample_type);
 		return -EINVAL;
 	}
 
@@ -2178,7 +2198,7 @@ sof_ipc4_prepare_copier_module(struct snd_sof_widget *swidget,
 		in_fmt = &available_fmt->input_pin_fmts[input_fmt_index].audio_fmt;
 		out_ref_rate = in_fmt->sampling_frequency;
 		out_ref_channels = SOF_IPC4_AUDIO_FORMAT_CFG_CHANNELS_COUNT(in_fmt->fmt_cfg);
-		out_ref_type = SOF_IPC4_AUDIO_FORMAT_CFG_SAMPLE_TYPE(in_fmt->fmt_cfg);
+		out_ref_type = sof_ipc4_fmt_cfg_to_type(in_fmt->fmt_cfg);
 
 		if (!single_output_bitdepth)
 			out_ref_valid_bits =
@@ -2217,7 +2237,7 @@ sof_ipc4_prepare_copier_module(struct snd_sof_widget *swidget,
 		out_fmt = &available_fmt->output_pin_fmts[0].audio_fmt;
 		out_ref_valid_bits =
 			SOF_IPC4_AUDIO_FORMAT_CFG_V_BIT_DEPTH(out_fmt->fmt_cfg);
-		out_ref_type = SOF_IPC4_AUDIO_FORMAT_CFG_SAMPLE_TYPE(out_fmt->fmt_cfg);
+		out_ref_type = sof_ipc4_fmt_cfg_to_type(out_fmt->fmt_cfg);
 	}
 
 	output_fmt_index = sof_ipc4_init_output_audio_fmt(sdev, swidget,
@@ -2467,7 +2487,7 @@ static int sof_ipc4_prepare_gain_module(struct snd_sof_widget *swidget,
 	out_ref_rate = in_fmt->sampling_frequency;
 	out_ref_channels = SOF_IPC4_AUDIO_FORMAT_CFG_CHANNELS_COUNT(in_fmt->fmt_cfg);
 	out_ref_valid_bits = SOF_IPC4_AUDIO_FORMAT_CFG_V_BIT_DEPTH(in_fmt->fmt_cfg);
-	out_ref_type = SOF_IPC4_AUDIO_FORMAT_CFG_SAMPLE_TYPE(in_fmt->fmt_cfg);
+	out_ref_type = sof_ipc4_fmt_cfg_to_type(in_fmt->fmt_cfg);
 
 	output_fmt_index = sof_ipc4_init_output_audio_fmt(sdev, swidget,
 							  &gain->data.base_config,
@@ -2512,7 +2532,7 @@ static int sof_ipc4_prepare_mixer_module(struct snd_sof_widget *swidget,
 	out_ref_rate = in_fmt->sampling_frequency;
 	out_ref_channels = SOF_IPC4_AUDIO_FORMAT_CFG_CHANNELS_COUNT(in_fmt->fmt_cfg);
 	out_ref_valid_bits = SOF_IPC4_AUDIO_FORMAT_CFG_V_BIT_DEPTH(in_fmt->fmt_cfg);
-	out_ref_type = SOF_IPC4_AUDIO_FORMAT_CFG_SAMPLE_TYPE(in_fmt->fmt_cfg);
+	out_ref_type = sof_ipc4_fmt_cfg_to_type(in_fmt->fmt_cfg);
 
 	output_fmt_index = sof_ipc4_init_output_audio_fmt(sdev, swidget,
 							  &mixer->base_config,
@@ -2571,7 +2591,7 @@ static int sof_ipc4_prepare_src_module(struct snd_sof_widget *swidget,
 	in_audio_fmt = &available_fmt->input_pin_fmts[input_fmt_index].audio_fmt;
 	out_ref_channels = SOF_IPC4_AUDIO_FORMAT_CFG_CHANNELS_COUNT(in_audio_fmt->fmt_cfg);
 	out_ref_valid_bits = SOF_IPC4_AUDIO_FORMAT_CFG_V_BIT_DEPTH(in_audio_fmt->fmt_cfg);
-	out_ref_type = SOF_IPC4_AUDIO_FORMAT_CFG_SAMPLE_TYPE(in_audio_fmt->fmt_cfg);
+	out_ref_type = sof_ipc4_fmt_cfg_to_type(in_audio_fmt->fmt_cfg);
 
 	/*
 	 * For capture, the SRC module should convert the rate to match the rate requested by the
@@ -2717,7 +2737,7 @@ static int sof_ipc4_prepare_process_module(struct snd_sof_widget *swidget,
 		out_ref_rate = in_fmt->sampling_frequency;
 		out_ref_channels = SOF_IPC4_AUDIO_FORMAT_CFG_CHANNELS_COUNT(in_fmt->fmt_cfg);
 		out_ref_valid_bits = SOF_IPC4_AUDIO_FORMAT_CFG_V_BIT_DEPTH(in_fmt->fmt_cfg);
-		out_ref_type = SOF_IPC4_AUDIO_FORMAT_CFG_SAMPLE_TYPE(in_fmt->fmt_cfg);
+		out_ref_type = sof_ipc4_fmt_cfg_to_type(in_fmt->fmt_cfg);
 
 		output_fmt_index = sof_ipc4_init_output_audio_fmt(sdev, swidget,
 								  &process->base_config,
