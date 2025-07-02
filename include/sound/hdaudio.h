@@ -352,7 +352,6 @@ struct hdac_bus {
 	bool not_use_interrupts:1;	/* prohibiting the RIRB IRQ */
 	bool access_sdnctl_in_dword:1;	/* accessing the sdnctl register by dword */
 	bool use_pio_for_commands:1;	/* Use PIO instead of CORB for commands */
-	bool i915_no_device_link:1;	/* Do not add device link for i915 HDMI audio */
 
 	int poll_count;
 
