@@ -366,7 +366,7 @@ struct hdac_bus {
 	struct mutex lock;
 
 	/* DRM component interface */
-	void *audio_component;
+	struct drm_audio_component *audio_component;
 	long display_power_status;
 	unsigned long display_power_active;
 

@@ -252,12 +252,10 @@ static const struct component_master_ops hdac_component_master_ops = {
 int snd_hdac_acomp_register_notifier(struct hdac_bus *bus,
 				    const struct drm_audio_component_audio_ops *aops)
 {
-	struct drm_audio_component *acomp = bus->audio_component;
-
-	if (!acomp)
+	if (!bus->audio_component)
 		return -ENODEV;
 
-	acomp->audio_ops = aops;
+	bus->audio_component->audio_ops = aops;
 	return 0;
 }
 EXPORT_SYMBOL_GPL(snd_hdac_acomp_register_notifier);
