@@ -205,7 +205,6 @@ int snd_sof_bytes_ext_volatile_get(struct snd_kcontrol *kcontrol, unsigned int _
 								binary_data,
 								size);
 
-	pm_runtime_mark_last_busy(scomp->dev);
 	err = pm_runtime_put_autosuspend(scomp->dev);
 	if (err < 0)
 		dev_err_ratelimited(scomp->dev, "%s: failed to idle %d\n", __func__, err);
