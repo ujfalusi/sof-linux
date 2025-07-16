@@ -4181,6 +4181,7 @@ F:	include/linux/cpumask_types.h
 F:	include/linux/find.h
 F:	include/linux/nodemask.h
 F:	include/linux/nodemask_types.h
+F:	include/uapi/linux/bits.h
 F:	include/vdso/bits.h
 F:	lib/bitmap-str.c
 F:	lib/bitmap.c
@@ -4193,6 +4194,7 @@ F:	tools/include/linux/bitfield.h
 F:	tools/include/linux/bitmap.h
 F:	tools/include/linux/bits.h
 F:	tools/include/linux/find.h
+F:	tools/include/uapi/linux/bits.h
 F:	tools/include/vdso/bits.h
 F:	tools/lib/bitmap.c
 F:	tools/lib/find_bit.c
@@ -5741,9 +5743,9 @@ F:	drivers/spi/spi-cs42l43*
 F:	include/dt-bindings/sound/cs*
 F:	include/linux/mfd/cs42l43*
 F:	include/sound/cs*
-F:	sound/pci/hda/cirrus*
-F:	sound/pci/hda/cs*
-F:	sound/pci/hda/hda_component*
+F:	sound/hda/codecs/cirrus*
+F:	sound/hda/codecs/side-codecs/cs*
+F:	sound/hda/codecs/side-codecs/hda_component*
 F:	sound/soc/codecs/cs*
 
 CIRRUS LOGIC HAPTIC DRIVERS
@@ -10504,7 +10506,7 @@ S:	Maintained
 F:	block/partitions/efi.*
 
 HABANALABS PCI DRIVER
-M:	Ofir Bitton <obitton@habana.ai>
+M:	Yaron Avizrat <yaron.avizrat@intel.com>
 L:	dri-devel@lists.freedesktop.org
 S:	Supported
 C:	irc://irc.oftc.net/dri-devel
@@ -16822,8 +16824,8 @@ F:	include/dt-bindings/clock/mobileye,eyeq5-clk.h
 MODULE SUPPORT
 M:	Luis Chamberlain <mcgrof@kernel.org>
 M:	Petr Pavlu <petr.pavlu@suse.com>
+M:	Daniel Gomez <da.gomez@kernel.org>
 R:	Sami Tolvanen <samitolvanen@google.com>
-R:	Daniel Gomez <da.gomez@samsung.com>
 L:	linux-modules@vger.kernel.org
 L:	linux-kernel@vger.kernel.org
 S:	Maintained
@@ -17222,10 +17224,10 @@ F:	drivers/rtc/rtc-ntxec.c
 F:	include/linux/mfd/ntxec.h
 
 NETRONOME ETHERNET DRIVERS
-M:	Louis Peens <louis.peens@corigine.com>
 R:	Jakub Kicinski <kuba@kernel.org>
+R:	Simon Horman <horms@kernel.org>
 L:	oss-drivers@corigine.com
-S:	Maintained
+S:	Odd Fixes
 F:	drivers/net/ethernet/netronome/
 
 NETWORK BLOCK DEVICE (NBD)
@@ -19601,8 +19603,7 @@ T:	git git://git.kernel.org/pub/scm/linux/kernel/git/pinctrl/intel.git
 F:	drivers/pinctrl/intel/
 
 PIN CONTROLLER - KEEMBAY
-M:	Lakshmi Sowjanya D <lakshmi.sowjanya.d@intel.com>
-S:	Supported
+S:	Orphan
 F:	drivers/pinctrl/pinctrl-keembay*
 
 PIN CONTROLLER - MEDIATEK
@@ -24547,7 +24548,7 @@ F:	Documentation/devicetree/bindings/sound/ti,tlv320*.yaml
 F:	Documentation/devicetree/bindings/sound/ti,tlv320adcx140.yaml
 F:	include/sound/tas2*.h
 F:	include/sound/tlv320*.h
-F:	sound/pci/hda/tas2781_hda_i2c.c
+F:	sound/hda/codecs/side-codecs/tas2781_hda_i2c.c
 F:	sound/soc/codecs/pcm1681.c
 F:	sound/soc/codecs/pcm1789*.*
 F:	sound/soc/codecs/pcm179x*.*
@@ -26948,7 +26949,7 @@ F:	arch/x86/kernel/stacktrace.c
 F:	arch/x86/kernel/unwind_*.c
 
 X86 TRUST DOMAIN EXTENSIONS (TDX)
-M:	Kirill A. Shutemov <kirill.shutemov@linux.intel.com>
+M:	Kirill A. Shutemov <kas@kernel.org>
 R:	Dave Hansen <dave.hansen@linux.intel.com>
 L:	x86@kernel.org
 L:	linux-coco@lists.linux.dev
@@ -27317,13 +27318,6 @@ S:	Supported
 W:	http://www.marvell.com
 F:	drivers/i2c/busses/i2c-xlp9xx.c
 
-XRA1403 GPIO EXPANDER
-M:	Nandor Han <nandor.han@ge.com>
-L:	linux-gpio@vger.kernel.org
-S:	Maintained
-F:	Documentation/devicetree/bindings/gpio/gpio-xra1403.txt
-F:	drivers/gpio/gpio-xra1403.c
-
 XTENSA XTFPGA PLATFORM SUPPORT
 M:	Max Filippov <jcmvbkbc@gmail.com>
 S:	Maintained
@@ -27487,7 +27481,7 @@ SENARYTECH AUDIO CODEC DRIVER
 M:	bo liu <bo.liu@senarytech.com>
 S:	Maintained
 T:	git git://git.kernel.org/pub/scm/linux/kernel/git/tiwai/sound.git
-F:	sound/pci/hda/patch_senarytech.c
+F:	sound/hda/codecs/senarytech.c
 
 THE REST
 M:	Linus Torvalds <torvalds@linux-foundation.org>
