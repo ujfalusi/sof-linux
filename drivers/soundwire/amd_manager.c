@@ -238,7 +238,7 @@ static u64 amd_sdw_send_cmd_get_resp(struct amd_sdw_manager *amd_manager, u32 lo
 
 	if (sts & AMD_SDW_IMM_RES_VALID) {
 		dev_err(amd_manager->dev, "SDW%x manager is in bad state\n", amd_manager->instance);
-		writel(0x00, amd_manager->mmio + ACP_SW_IMM_CMD_STS);
+		writel(AMD_SDW_IMM_RES_VALID, amd_manager->mmio + ACP_SW_IMM_CMD_STS);
 	}
 	writel(upper_data, amd_manager->mmio + ACP_SW_IMM_CMD_UPPER_WORD);
 	writel(lower_data, amd_manager->mmio + ACP_SW_IMM_CMD_LOWER_QWORD);
@@ -499,6 +499,7 @@ static int amd_sdw_port_params(struct sdw_bus *bus, struct sdw_port_params *p_pa
 		break;
 	case ACP70_PCI_REV_ID:
 	case ACP71_PCI_REV_ID:
+	case ACP72_PCI_REV_ID:
 		frame_fmt_reg = acp70_sdw_dp_reg[p_params->num].frame_fmt_reg;
 		break;
 	default:
@@ -551,6 +552,7 @@ static int amd_sdw_transport_params(struct sdw_bus *bus,
 		break;
 	case ACP70_PCI_REV_ID:
 	case ACP71_PCI_REV_ID:
+	case ACP72_PCI_REV_ID:
 		frame_fmt_reg = acp70_sdw_dp_reg[params->port_num].frame_fmt_reg;
 		sample_int_reg = acp70_sdw_dp_reg[params->port_num].sample_int_reg;
 		hctrl_dp0_reg = acp70_sdw_dp_reg[params->port_num].hctrl_dp0_reg;
@@ -614,6 +616,7 @@ static int amd_sdw_port_enable(struct sdw_bus *bus,
 		break;
 	case ACP70_PCI_REV_ID:
 	case ACP71_PCI_REV_ID:
+	case ACP72_PCI_REV_ID:
 		lane_ctrl_ch_en_reg = acp70_sdw_dp_reg[enable_ch->port_num].lane_ctrl_ch_en_reg;
 		break;
 	default:
@@ -1038,6 +1041,7 @@ static int amd_sdw_manager_probe(struct platform_device *pdev)
 		break;
 	case ACP70_PCI_REV_ID:
 	case ACP71_PCI_REV_ID:
+	case ACP72_PCI_REV_ID:
 		amd_manager->num_dout_ports = AMD_ACP70_SDW_MAX_TX_PORTS;
 		amd_manager->num_din_ports = AMD_ACP70_SDW_MAX_RX_PORTS;
 		break;
@@ -1213,6 +1217,7 @@ static int __maybe_unused amd_suspend(struct device *dev)
 	}
 
 	if (amd_manager->power_mode_mask & AMD_SDW_CLK_STOP_MODE) {
+		cancel_work_sync(&amd_manager->amd_sdw_work);
 		amd_sdw_wake_enable(amd_manager, false);
 		if (amd_manager->acp_rev >= ACP70_PCI_REV_ID) {
 			ret = amd_sdw_host_wake_enable(amd_manager, false);
@@ -1223,6 +1228,7 @@ static int __maybe_unused amd_suspend(struct device *dev)
 		if (ret)
 			return ret;
 	} else if (amd_manager->power_mode_mask & AMD_SDW_POWER_OFF_MODE) {
+		cancel_work_sync(&amd_manager->amd_sdw_work);
 		amd_sdw_wake_enable(amd_manager, false);
 		if (amd_manager->acp_rev >= ACP70_PCI_REV_ID) {
 			ret = amd_sdw_host_wake_enable(amd_manager, false);

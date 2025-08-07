@@ -186,6 +186,14 @@ enum sdca_usage_range {
 };
 
 /**
+ * enum sdca_dataport_selector_range - Column definitions for DataPort_Selector
+ */
+enum sdca_dataport_selector_range {
+	SDCA_DATAPORT_SELECTOR_NCOLS			= 16,
+	SDCA_DATAPORT_SELECTOR_NROWS			= 4,
+};
+
+/**
  * enum sdca_mu_controls - SDCA Controls for Mixer Unit
  *
  * Control Selectors for Mixer Unit from SDCA specification v1.0
@@ -734,14 +742,14 @@ struct sdca_control_range {
  * struct sdca_control - information for one SDCA Control
  * @label: Name for the Control, from SDCA Specification v1.0, section 7.1.7.
  * @sel: Identifier used for addressing.
- * @value: Holds the Control value for constants and defaults.
  * @nbits: Number of bits used in the Control.
- * @interrupt_position: SCDA interrupt line that will alert to changes on this
- * Control.
+ * @values: Holds the Control value for constants and defaults.
  * @cn_list: A bitmask showing the valid Control Numbers within this Control,
  * Control Numbers typically represent channels.
- * @range: Buffer describing valid range of values for the Control.
+ * @interrupt_position: SCDA interrupt line that will alert to changes on this
+ * Control.
  * @type: Format of the data in the Control.
+ * @range: Buffer describing valid range of values for the Control.
  * @mode: Access mode of the Control.
  * @layers: Bitmask of access layers of the Control.
  * @deferrable: Indicates if the access to the Control can be deferred.
@@ -752,13 +760,13 @@ struct sdca_control {
 	const char *label;
 	int sel;
 
-	int value;
 	int nbits;
-	int interrupt_position;
+	int *values;
 	u64 cn_list;
+	int interrupt_position;
 
-	struct sdca_control_range range;
 	enum sdca_control_datatype type;
+	struct sdca_control_range range;
 	enum sdca_access_mode mode;
 	u8 layers;
 
@@ -1269,6 +1277,15 @@ struct sdca_cluster {
 };
 
 /**
+ * enum sdca_cluster_range - SDCA Range column definitions for ClusterIndex
+ */
+enum sdca_cluster_range {
+	SDCA_CLUSTER_BYTEINDEX				= 0,
+	SDCA_CLUSTER_CLUSTERID				= 1,
+	SDCA_CLUSTER_NCOLS				= 2,
+};
+
+/**
  * struct sdca_function_data - top-level information for one SDCA function
  * @desc: Pointer to short descriptor from initial parsing.
  * @init_table: Pointer to a table of initialization writes.
@@ -1315,5 +1332,19 @@ static inline u32 sdca_range_search(struct sdca_control_range *range,
 int sdca_parse_function(struct device *dev,
 			struct sdca_function_desc *desc,
 			struct sdca_function_data *function);
+
+struct sdca_control *sdca_selector_find_control(struct device *dev,
+						struct sdca_entity *entity,
+						const int sel);
+struct sdca_control_range *sdca_control_find_range(struct device *dev,
+						   struct sdca_entity *entity,
+						   struct sdca_control *control,
+						   int cols, int rows);
+struct sdca_control_range *sdca_selector_find_range(struct device *dev,
+						    struct sdca_entity *entity,
+						    int sel, int cols, int rows);
+struct sdca_cluster *sdca_id_find_cluster(struct device *dev,
+					  struct sdca_function_data *function,
+					  const int id);
 
 #endif
