@@ -1343,12 +1343,13 @@ static u32 sof_ipc4_fmt_cfg_to_type(u32 fmt_cfg)
 {
 	/* Fetch  the sample type from the fmt for 8 and 32 bit formats */
 	u32 __bits = SOF_IPC4_AUDIO_FORMAT_CFG_V_BIT_DEPTH(fmt_cfg);
+
 	if (__bits == 8 || __bits == 32)
 		return SOF_IPC4_AUDIO_FORMAT_CFG_SAMPLE_TYPE(fmt_cfg);
 
 	/*
 	 * Return LSB integer type for 20 and 24 formats as the firmware is
-	 * handling the LSB/MSB alignement internally, for the kernel this
+	 * handling the LSB/MSB alignment internally, for the kernel this
 	 * should not be taken into account, we treat them as LSB to match with
 	 * the format we support on the PCM side.
 	 */
@@ -2214,9 +2215,10 @@ sof_ipc4_prepare_copier_module(struct snd_sof_widget *swidget,
 	case snd_soc_dapm_dai_in:
 		out_ref_rate = params_rate(fe_params);
 		out_ref_channels = params_channels(fe_params);
-		out_ref_type = sof_ipc4_get_sample_type(sdev, fe_params);
-		if (out_ref_type < 0)
-			return out_ref_type;
+		ret = sof_ipc4_get_sample_type(sdev, fe_params);
+		if (ret < 0)
+			return ret;
+		out_ref_type = (u32)ret;
 
 		if (!single_output_bitdepth) {
 			out_ref_valid_bits = sof_ipc4_get_valid_bits(sdev, fe_params);
