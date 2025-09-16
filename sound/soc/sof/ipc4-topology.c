@@ -3006,7 +3006,7 @@ static int sof_ipc4_widget_setup_msg_payload(struct snd_sof_dev *sdev,
 	/* Calculate final size and check that it fits to max payload size */
 	new_size = ext_pos * sizeof(u32) + ipc_size;
 	if (new_size > sdev->ipc->max_payload_size) {
-		dev_err(sdev->dev, "Max ipc payload size %lu exceeded: %u",
+		dev_err(sdev->dev, "Max ipc payload size %zu exceeded: %u",
 			sdev->ipc->max_payload_size, new_size);
 		kfree(payload);
 		return -EINVAL;
