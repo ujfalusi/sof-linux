@@ -1269,8 +1269,9 @@ static int sof_ipc4_pcm_pointer(struct snd_soc_component *component,
 		time_info->delay = head_cnt - tail_cnt;
 
 	if (time_info->delay > DELAY_MAX) {
-		dev_dbg_ratelimited(sdev->dev,
-				    "inaccurate delay, host %llu dai_cnt %llu", host_cnt, dai_cnt);
+		spcm_dbg_ratelimited(spcm, substream->stream,
+				     "inaccurate delay, host %llu dai_cnt %llu",
+				     host_cnt, dai_cnt);
 		time_info->delay = 0;
 	}
 
