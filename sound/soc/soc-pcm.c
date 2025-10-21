@@ -30,37 +30,6 @@
 DEFINE_GUARD(snd_soc_card_mutex, struct snd_soc_card *,
 	     snd_soc_card_mutex_lock(_T), snd_soc_card_mutex_unlock(_T))
 
-static void peter_debug_params(struct snd_pcm_substream *fe_substream, const char *func)
-{
-	struct snd_soc_pcm_runtime *fe_rtd = snd_soc_substream_to_rtd(fe_substream);
-	struct snd_pcm_runtime *fe_runtime = fe_substream->runtime;
-	struct snd_pcm_substream *be_substream;
-	struct snd_pcm_runtime *be_runtime;
-	struct snd_soc_pcm_runtime *be_rtd;
-	struct snd_soc_dpcm *dpcm;
-
-	for_each_dpcm_be(fe_rtd, fe_substream->stream, dpcm) {
-		if (dpcm->fe != fe_rtd)
-			continue;
-
-		be_rtd = dpcm->be;
-	}
-
-	if (!be_rtd)
-		return;
-
-	be_substream = snd_soc_dpcm_get_substream(be_rtd, fe_substream->stream);
-	be_runtime = be_substream->runtime;
-
-	if (be_substream == fe_substream)
-		pr_err("[peter] %s: be/fe substream is the same!!!!\n", func);
-
-	pr_warn("[peter] %s: FE: channels: %d-%d, formats: %#llx, rates: %#x\n", func,
-		fe_runtime->hw.channels_min, fe_runtime->hw.channels_max, fe_runtime->hw.formats, fe_runtime->hw.rates);
-	pr_warn("[peter] %s: BE: channels: %d-%d, formats: %#llx, rates: %#x\n", func,
-		be_runtime->hw.channels_min, be_runtime->hw.channels_max, be_runtime->hw.formats, be_runtime->hw.rates);
-}
-
 #define soc_pcm_ret(rtd, ret) _soc_pcm_ret(rtd, __func__, ret)
 static inline int _soc_pcm_ret(struct snd_soc_pcm_runtime *rtd,
 			       const char *func, int ret)
@@ -751,8 +720,6 @@ static void soc_pcm_hw_update_rate(struct snd_pcm_hardware *hw,
 static void soc_pcm_hw_update_chan(struct snd_pcm_hardware *hw,
 				   const struct snd_soc_pcm_stream *p)
 {
-	pr_warn("[peter] %s: HW/P channels: %d-%d / %d-%d\n", __func__,
-		hw->channels_min, hw->channels_max, p->channels_min, p->channels_max);
 	hw->channels_min = max(hw->channels_min, p->channels_min);
 	hw->channels_max = min(hw->channels_max, p->channels_max);
 }
@@ -849,22 +816,15 @@ static void soc_pcm_init_runtime_hw(struct snd_pcm_substream *substream)
 	struct snd_soc_pcm_runtime *rtd = snd_soc_substream_to_rtd(substream);
 	u64 formats = hw->formats;
 
-	pr_warn("[peter] %s pre: channels: %d-%d, formats: %#llx, rates: %#x\n", __func__,
-		hw->channels_min, hw->channels_max, hw->formats, hw->rates);
 	/*
 	 * At least one CPU and one CODEC should match. Otherwise, we should
 	 * have bailed out on a higher level, since there would be no CPU or
 	 * CODEC to support the transfer direction in that case.
 	 */
-	peter_debug_params(substream, __func__);
 	snd_soc_runtime_calc_hw(rtd, hw, substream->stream);
-	peter_debug_params(substream, __func__);
 
 	if (formats)
 		hw->formats &= formats;
-
-	pr_warn("[peter] %s post: channels: %d-%d, formats: %#llx, rates: %#x\n", __func__,
-		hw->channels_min, hw->channels_max, hw->formats, hw->rates);
 }
 
 static int soc_pcm_components_open(struct snd_pcm_substream *substream)
@@ -2114,45 +2074,28 @@ static int dpcm_fe_dai_startup(struct snd_pcm_substream *fe_substream)
 		goto be_err;
 
 	dev_dbg(fe->dev, "ASoC: open FE %s\n", fe->dai_link->name);
-	pr_warn("[peter] %s - 0: channels: %d-%d, formats: %#llx, rates: %#x\n", __func__,
-		fe_substream->runtime->hw.channels_min, fe_substream->runtime->hw.channels_max, fe_substream->runtime->hw.formats, fe_substream->runtime->hw.rates);
 
 	/* start the DAI frontend */
 	ret = __soc_pcm_open(fe, fe_substream);
 	if (ret < 0)
 		goto unwind;
 
-	pr_warn("[peter] %s - 1: channels: %d-%d, formats: %#llx, rates: %#x\n", __func__,
-		fe_substream->runtime->hw.channels_min, fe_substream->runtime->hw.channels_max, fe_substream->runtime->hw.formats, fe_substream->runtime->hw.rates);
 	fe->dpcm[stream].state = SND_SOC_DPCM_STATE_OPEN;
 
 	dpcm_runtime_setup_fe(fe_substream);
-	pr_warn("[peter] %s - 2: channels: %d-%d, formats: %#llx, rates: %#x\n", __func__,
-		fe_substream->runtime->hw.channels_min, fe_substream->runtime->hw.channels_max, fe_substream->runtime->hw.formats, fe_substream->runtime->hw.rates);
 
 	dpcm_runtime_setup_be_format(fe_substream);
-	pr_warn("[peter] %s - 3: channels: %d-%d, formats: %#llx, rates: %#x\n", __func__,
-		fe_substream->runtime->hw.channels_min, fe_substream->runtime->hw.channels_max, fe_substream->runtime->hw.formats, fe_substream->runtime->hw.rates);
 	dpcm_runtime_setup_be_chan(fe_substream);
-	pr_warn("[peter] %s - 4: channels: %d-%d, formats: %#llx, rates: %#x\n", __func__,
-		fe_substream->runtime->hw.channels_min, fe_substream->runtime->hw.channels_max, fe_substream->runtime->hw.formats, fe_substream->runtime->hw.rates);
 	dpcm_runtime_setup_be_rate(fe_substream);
-	pr_warn("[peter] %s - 5: channels: %d-%d, formats: %#llx, rates: %#x\n", __func__,
-		fe_substream->runtime->hw.channels_min, fe_substream->runtime->hw.channels_max, fe_substream->runtime->hw.formats, fe_substream->runtime->hw.rates);
 
 	ret = dpcm_apply_symmetry(fe_substream, stream);
 
-	pr_warn("[peter] %s - 6: channels: %d-%d, formats: %#llx, rates: %#x\n", __func__,
-		fe_substream->runtime->hw.channels_min, fe_substream->runtime->hw.channels_max, fe_substream->runtime->hw.formats, fe_substream->runtime->hw.rates);
 unwind:
 	if (ret < 0)
 		dpcm_be_dai_startup_unwind(fe, stream);
 be_err:
 	dpcm_set_fe_update_state(fe, stream, SND_SOC_DPCM_UPDATE_NO);
 
-	pr_warn("[peter] %s - 7: channels: %d-%d, formats: %#llx, rates: %#x\n", __func__,
-		fe_substream->runtime->hw.channels_min, fe_substream->runtime->hw.channels_max, fe_substream->runtime->hw.formats, fe_substream->runtime->hw.rates);
-	dev_dbg(fe->dev, "ASoC: open FE %s DONE\n", fe->dai_link->name);
 	return soc_pcm_ret(fe, ret);
 }
 
@@ -2335,7 +2278,6 @@ static int dpcm_fe_dai_hw_params(struct snd_pcm_substream *substream,
 
 	memcpy(&fe->dpcm[stream].hw_params, params,
 			sizeof(struct snd_pcm_hw_params));
-	peter_debug_params(substream, __func__);
 	ret = dpcm_be_dai_hw_params(fe, stream);
 	if (ret < 0)
 		goto out;
@@ -2344,7 +2286,6 @@ static int dpcm_fe_dai_hw_params(struct snd_pcm_substream *substream,
 			fe->dai_link->name, params_rate(params),
 			params_channels(params), params_format(params));
 
-	peter_debug_params(substream, __func__);
 	/* call hw_params on the frontend */
 	ret = __soc_pcm_hw_params(substream, params);
 	if (ret < 0)

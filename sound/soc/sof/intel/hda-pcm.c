@@ -44,39 +44,6 @@ module_param_named(force_pause_support, hda_force_pause_support, int, 0444);
 MODULE_PARM_DESC(force_pause_support,
 		 "Pause support: -1: Use default, 0: Disable, 1: Enable (default -1)");
 
-static void sof_hda_debug_params(struct snd_pcm_substream *fe_substream, const char *func)
-{
-	struct snd_soc_pcm_runtime *fe_rtd = snd_soc_substream_to_rtd(fe_substream);
-	struct snd_pcm_runtime *fe_runtime = fe_substream->runtime;
-	struct snd_pcm_substream *be_substream;
-	struct snd_pcm_runtime *be_runtime;
-	struct snd_soc_pcm_runtime *be_rtd;
-	struct snd_soc_dpcm *dpcm;
-
-	for_each_dpcm_be(fe_rtd, fe_substream->stream, dpcm) {
-		if (dpcm->fe != fe_rtd)
-			continue;
-
-		be_rtd = dpcm->be;
-	}
-
-	if (!be_rtd)
-		return;
-
-	be_substream = snd_soc_dpcm_get_substream(be_rtd, fe_substream->stream);
-	be_runtime = be_substream->runtime;
-
-	if (be_substream == fe_substream)
-		pr_err("[peter] %s: be/fe substream is the same!!!!\n", func);
-
-	pr_warn("[peter] %s: FE (%s [%s]): channels: %d-%d, formats: %#llx, rates: %#x\n", func,
-		fe_substream->pcm->id, fe_substream->pcm->name,
-		fe_runtime->hw.channels_min, fe_runtime->hw.channels_max, fe_runtime->hw.formats, fe_runtime->hw.rates);
-	pr_warn("[peter] %s: BE (%s [%s]): channels: %d-%d, formats: %#llx, rates: %#x\n", func,
-		be_substream->pcm->id, be_substream->pcm->name,
-		be_runtime->hw.channels_min, be_runtime->hw.channels_max, be_runtime->hw.formats, be_runtime->hw.rates);
-}
-
 u32 hda_dsp_get_mult_div(struct snd_sof_dev *sdev, int rate)
 {
 	switch (rate) {
@@ -179,8 +146,6 @@ int hda_dsp_pcm_hw_params(struct snd_sof_dev *sdev,
 		platform_params->no_ipc_position = hda->no_ipc_position;
 
 	platform_params->stream_tag = hstream->stream_tag;
-
-	sof_hda_debug_params(substream, __func__);
 
 	return 0;
 }
@@ -326,14 +291,10 @@ int hda_dsp_pcm_open(struct snd_sof_dev *sdev,
 					     runtime->hw.periods_min,
 					     HDA_DSP_MAX_BDL_ENTRIES);
 
-	/* binding pcm substream to hda stream */
-	substream->runtime->private_data = &dsp_stream->hstream;
-
-	if (sdev->dspless_mode_selected) {
-		/* Only S16 and S32 supported by HDA hardware when used without DSP */
+	/* Only S16 and S32 supported by HDA hardware when used without DSP */
+	if (sdev->dspless_mode_selected)
 		snd_pcm_hw_constraint_mask64(substream->runtime, SNDRV_PCM_HW_PARAM_FORMAT,
 					     SNDRV_PCM_FMTBIT_S16 | SNDRV_PCM_FMTBIT_S32);
-	}
 
 	/*
 	 * The dsp_max_burst_size_in_ms is the length of the maximum burst size
@@ -376,8 +337,6 @@ int hda_dsp_pcm_open(struct snd_sof_dev *sdev,
 	 */
 	dsp_stream->pplcllpl = 0;
 	dsp_stream->pplcllpu = 0;
-
-	sof_hda_debug_params(substream, __func__);
 
 	return 0;
 }
