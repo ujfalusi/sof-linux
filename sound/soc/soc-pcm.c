@@ -1738,13 +1738,21 @@ static void dpcm_runtime_setup_fe(struct snd_pcm_substream *substream)
 	struct snd_pcm_hardware *hw = &runtime->hw;
 	struct snd_soc_dai *dai;
 	int stream = substream->stream;
-	u64 formats = hw->formats;
 	int i;
 
-	soc_pcm_hw_init(hw);
-
-	if (formats)
-		hw->formats &= formats;
+	/*
+	 * Initialize only pcm hardware patameters that has not been initialized
+	 * and preserve the configuration which might have been provided by
+	 * component drivers
+	 */
+	if (!hw->rates)
+		hw->rates = UINT_MAX;
+	if (!hw->rate_max)
+		hw->rate_max = UINT_MAX;
+	if (!hw->channels_max)
+		hw->channels_max = UINT_MAX;
+	if (!hw->formats)
+		hw->formats = ULLONG_MAX;
 
 	for_each_rtd_cpu_dais(fe, i, dai) {
 		const struct snd_soc_pcm_stream *cpu_stream;
