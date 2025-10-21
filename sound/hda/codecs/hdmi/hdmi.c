@@ -891,7 +891,6 @@ static int hdmi_pcm_open(struct hda_pcm_stream *hinfo,
 	struct hdmi_spec_per_cvt *per_cvt = NULL;
 	int err;
 
-	pr_warn("[peter] %s: ENTER\n", __func__);
 	/* Validate hinfo */
 	pcm_idx = hinfo_to_pcm_index(codec, hinfo);
 	if (pcm_idx < 0)
@@ -1147,7 +1146,6 @@ static void update_eld(struct hda_codec *codec,
 	bool eld_changed;
 	int pcm_idx;
 
-	pr_warn("[peter] %s: ENTER\n", __func__);
 	if (eld->eld_valid) {
 		if (eld->eld_size <= 0 ||
 		    snd_parse_eld(hda_codec_dev(codec), &eld->info,
@@ -1214,7 +1212,6 @@ static void update_eld(struct hda_codec *codec,
 		pin_eld->info = eld->info;
 	}
 
-	pr_warn("[peter] %s: monitor: %s\n", __func__, eld->info.monitor_name);
 	/*
 	 * Re-setup pin and infoframe. This is needed e.g. when
 	 * - sink is first plugged-in
