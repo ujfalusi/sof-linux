@@ -27,6 +27,6 @@ enum adsp_clk_id {
 };
 
 int mt8365_adsp_init_clock(struct snd_sof_dev *sdev);
-int adsp_clock_on(struct snd_sof_dev *sdev);
-int adsp_clock_off(struct snd_sof_dev *sdev);
+int mt8365_adsp_clock_on(struct snd_sof_dev *sdev);
+int mt8365_adsp_clock_off(struct snd_sof_dev *sdev);
 #endif

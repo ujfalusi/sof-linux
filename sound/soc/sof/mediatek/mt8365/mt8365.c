@@ -273,7 +273,7 @@ static int adsp_memory_remap_init(struct device *dev, struct mtk_adsp_chip_info 
 static int mt8365_run(struct snd_sof_dev *sdev)
 {
 	dev_dbg(sdev->dev, "HIFIxDSP boot from base : 0x%08X\n", SRAM_PHYS_BASE_FROM_DSP_VIEW);
-	sof_hifixdsp_boot_sequence(sdev, SRAM_PHYS_BASE_FROM_DSP_VIEW);
+	mt8365_sof_hifixdsp_boot_sequence(sdev, SRAM_PHYS_BASE_FROM_DSP_VIEW);
 
 	return 0;
 }
@@ -306,9 +306,9 @@ static int mt8365_dsp_probe(struct snd_sof_dev *sdev)
 		return -EINVAL;
 	}
 
-	ret = adsp_clock_on(sdev);
+	ret = mt8365_adsp_clock_on(sdev);
 	if (ret) {
-		dev_err(sdev->dev, "adsp_clock_on fail!\n");
+		dev_err(sdev->dev, "mt8365_adsp_clock_on fail!\n");
 		return -EINVAL;
 	}
 
@@ -375,7 +375,7 @@ static int mt8365_dsp_probe(struct snd_sof_dev *sdev)
 err_adsp_sram_power_off:
 	adsp_sram_power_on(&pdev->dev, false);
 exit_clk_disable:
-	adsp_clock_off(sdev);
+	mt8365_adsp_clock_off(sdev);
 
 	return ret;
 }
@@ -392,7 +392,7 @@ static void mt8365_dsp_remove(struct snd_sof_dev *sdev)
 
 	platform_device_unregister(priv->ipc_dev);
 	adsp_sram_power_on(&pdev->dev, false);
-	adsp_clock_off(sdev);
+	mt8365_adsp_clock_off(sdev);
 }
 
 static int mt8365_dsp_suspend(struct snd_sof_dev *sdev, u32 target_state)
@@ -401,7 +401,7 @@ static int mt8365_dsp_suspend(struct snd_sof_dev *sdev, u32 target_state)
 	int ret;
 
 	/* reset dsp */
-	sof_hifixdsp_shutdown(sdev);
+	mt8365_sof_hifixdsp_shutdown(sdev);
 
 	/* power down adsp sram */
 	ret = adsp_sram_power_on(&pdev->dev, false);
@@ -411,7 +411,7 @@ static int mt8365_dsp_suspend(struct snd_sof_dev *sdev, u32 target_state)
 	}
 
 	/* turn off adsp clock */
-	return adsp_clock_off(sdev);
+	return mt8365_adsp_clock_off(sdev);
 }
 
 static int mt8365_dsp_resume(struct snd_sof_dev *sdev)
@@ -419,9 +419,9 @@ static int mt8365_dsp_resume(struct snd_sof_dev *sdev)
 	int ret;
 
 	/* turn on adsp clock */
-	ret = adsp_clock_on(sdev);
+	ret = mt8365_adsp_clock_on(sdev);
 	if (ret) {
-		dev_err(sdev->dev, "adsp_clock_on fail!\n");
+		dev_err(sdev->dev, "mt8365_adsp_clock_on fail!\n");
 		return ret;
 	}
 
