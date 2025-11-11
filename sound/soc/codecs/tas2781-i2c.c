@@ -110,6 +110,7 @@ static const struct i2c_device_id tasdevice_id[] = {
 	{ "tas2781", TAS2781 },
 	{ "tas5802", TAS5802 },
 	{ "tas5815", TAS5815 },
+	{ "tas5822", TAS5822 },
 	{ "tas5825", TAS5825 },
 	{ "tas5827", TAS5827 },
 	{ "tas5828", TAS5828 },
@@ -129,6 +130,7 @@ static const struct of_device_id tasdevice_of_match[] = {
 	{ .compatible = "ti,tas2781" },
 	{ .compatible = "ti,tas5802" },
 	{ .compatible = "ti,tas5815" },
+	{ .compatible = "ti,tas5822" },
 	{ .compatible = "ti,tas5825" },
 	{ .compatible = "ti,tas5827" },
 	{ .compatible = "ti,tas5828" },
@@ -1669,7 +1671,7 @@ static void tasdevice_fw_ready(const struct firmware *fmw,
 	tas_priv->fw_state = TASDEVICE_DSP_FW_ALL_OK;
 
 	/* There is no calibration required for
-	 * TAS5802/TAS5815/TAS5825/TAS5827/TAS5828.
+	 * TAS5802/TAS5815/TAS5822/TAS5825/TAS5827/TAS5828.
 	 */
 	if (tas_priv->chip_id < TAS5802) {
 		ret = tasdevice_create_cali_ctrls(tas_priv);
@@ -1727,6 +1729,7 @@ out:
 		case TAS2781:
 		case TAS5802:
 		case TAS5815:
+		case TAS5822:
 		case TAS5825:
 		case TAS5827:
 		case TAS5828:
@@ -1892,6 +1895,7 @@ static int tasdevice_codec_probe(struct snd_soc_component *codec)
 		break;
 	case TAS5802:
 	case TAS5815:
+	case TAS5822:
 	case TAS5825:
 	case TAS5827:
 	case TAS5828:
@@ -1954,7 +1958,8 @@ static void tasdevice_parse_dt(struct tasdevice_priv *tas_priv)
 {
 	struct i2c_client *client = (struct i2c_client *)tas_priv->client;
 	unsigned int dev_addrs[TASDEVICE_MAX_CHANNELS];
-	int i, ndev = 0;
+	int ndev = 0;
+	int i, rc;
 
 	if (tas_priv->isacpi) {
 		ndev = device_property_read_u32_array(&client->dev,
@@ -1965,8 +1970,12 @@ static void tasdevice_parse_dt(struct tasdevice_priv *tas_priv)
 		} else {
 			ndev = (ndev < ARRAY_SIZE(dev_addrs))
 				? ndev : ARRAY_SIZE(dev_addrs);
-			ndev = device_property_read_u32_array(&client->dev,
+			rc = device_property_read_u32_array(&client->dev,
 				"ti,audio-slots", dev_addrs, ndev);
+			if (rc != 0) {
+				ndev = 1;
+				dev_addrs[0] = client->addr;
+			}
 		}
 
 		tas_priv->irq =
@@ -1996,7 +2005,8 @@ static void tasdevice_parse_dt(struct tasdevice_priv *tas_priv)
 		dev_err(tas_priv->dev, "%s Can't get reset GPIO\n",
 			__func__);
 
-	strcpy(tas_priv->dev_name, tasdevice_id[tas_priv->chip_id].name);
+	strscpy(tas_priv->dev_name, tasdevice_id[tas_priv->chip_id].name,
+		sizeof(tas_priv->dev_name));
 }
 
 static int tasdevice_i2c_probe(struct i2c_client *i2c)
@@ -2067,6 +2077,7 @@ static const struct acpi_device_id tasdevice_acpi_match[] = {
 	{ "TXNW2781", TAS2781 },
 	{ "TXNW5802", TAS5802 },
 	{ "TXNW5815", TAS5815 },
+	{ "TXNW5822", TAS5822 },
 	{ "TXNW5825", TAS5825 },
 	{ "TXNW5827", TAS5827 },
 	{ "TXNW5828", TAS5828 },
