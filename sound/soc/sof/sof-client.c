@@ -294,8 +294,8 @@ int sof_client_dev_register(struct snd_sof_dev *sdev, const char *name, u32 id,
 	}
 
 	/* add to list of SOF client devices */
-	guard(mutex)(&sdev->ipc_client_mutex);
-	list_add(&centry->list, &sdev->ipc_client_list);
+	scoped_guard(mutex, &sdev->ipc_client_mutex)
+		list_add(&centry->list, &sdev->ipc_client_list);
 
 	return 0;
 
