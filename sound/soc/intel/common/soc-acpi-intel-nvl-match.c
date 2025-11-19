@@ -8,6 +8,7 @@
 
 #include <sound/soc-acpi.h>
 #include <sound/soc-acpi-intel-match.h>
+#include "sof-function-topology-lib.h"
 #include "soc-acpi-intel-sdw-mockup-match.h"
 
 struct snd_soc_acpi_mach snd_soc_acpi_intel_nvl_machines[] = {
@@ -84,6 +85,7 @@ struct snd_soc_acpi_mach snd_soc_acpi_intel_nvl_sdw_machines[] = {
 		.links = nvl_rt722_l3,
 		.drv_name = "sof_sdw",
 		.sof_tplg_filename = "sof-nvl-rt722.tplg",
+		.get_function_tplg_files = sof_sdw_get_tplg_files,
 	},
 	{},
 };
