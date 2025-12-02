@@ -260,6 +260,7 @@ config SND_SOC_SOF_DEBUG_IPC_KERNEL_INJECTOR
 
 config SND_SOC_SOF_DEBUG_FW_GDB
 	tristate "SOF enable Firmware GDB debugging"
+	depends on SND_SOC_SOF
 	select SND_SOC_SOF_CLIENT
 	help
 	  This enables GDB debugging of the SOF firmware. If selected, this
