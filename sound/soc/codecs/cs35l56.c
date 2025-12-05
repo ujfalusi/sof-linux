@@ -66,6 +66,18 @@ static int cs35l56_dspwait_put_volsw(struct snd_kcontrol *kcontrol,
 
 static DECLARE_TLV_DB_SCALE(vol_tlv, -10000, 25, 0);
 
+static SOC_ENUM_SINGLE_DECL(cs35l56_cal_set_status_enum, SND_SOC_NOPM, 0,
+			    cs35l56_cal_set_status_text);
+
+static int cs35l56_cal_set_status_ctl_get(struct snd_kcontrol *kcontrol,
+					  struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *component = snd_kcontrol_chip(kcontrol);
+	struct cs35l56_private *cs35l56 = snd_soc_component_get_drvdata(component);
+
+	return cs35l56_cal_set_status_get(&cs35l56->base, ucontrol);
+}
+
 static const struct snd_kcontrol_new cs35l56_controls[] = {
 	SOC_SINGLE_EXT("Speaker Switch",
 		       CS35L56_MAIN_RENDER_USER_MUTE, 0, 1, 1,
@@ -83,6 +95,9 @@ static const struct snd_kcontrol_new cs35l56_controls[] = {
 	SOC_SINGLE_EXT("Posture Number", CS35L56_MAIN_POSTURE_NUMBER,
 		       0, 255, 0,
 		       cs35l56_dspwait_get_volsw, cs35l56_dspwait_put_volsw),
+	SOC_ENUM_EXT_ACC("CAL_SET_STATUS", cs35l56_cal_set_status_enum,
+			 cs35l56_cal_set_status_ctl_get, NULL,
+			 SNDRV_CTL_ELEM_ACCESS_READ | SNDRV_CTL_ELEM_ACCESS_VOLATILE),
 };
 
 static const struct snd_kcontrol_new cs35l63_controls[] = {
@@ -102,6 +117,9 @@ static const struct snd_kcontrol_new cs35l63_controls[] = {
 	SOC_SINGLE_EXT("Posture Number", CS35L63_MAIN_POSTURE_NUMBER,
 		       0, 255, 0,
 		       cs35l56_dspwait_get_volsw, cs35l56_dspwait_put_volsw),
+	SOC_ENUM_EXT_ACC("CAL_SET_STATUS", cs35l56_cal_set_status_enum,
+			 cs35l56_cal_set_status_ctl_get, NULL,
+			 SNDRV_CTL_ELEM_ACCESS_READ | SNDRV_CTL_ELEM_ACCESS_VOLATILE),
 };
 
 static SOC_VALUE_ENUM_SINGLE_DECL(cs35l56_asp1tx1_enum,
@@ -805,6 +823,9 @@ static void cs35l56_patch(struct cs35l56_private *cs35l56, bool firmware_missing
 		goto err_unlock;
 	}
 
+	/* Check if the firmware is still reported missing */
+	cs35l56_warn_if_firmware_missing(&cs35l56->base);
+
 	regmap_clear_bits(cs35l56->base.regmap,
 			  cs35l56->base.fw_reg->prot_sts,
 			  CS35L56_FIRMWARE_MISSING);
@@ -880,10 +901,10 @@ err:
 
 static struct snd_soc_dapm_context *cs35l56_power_up_for_cal(struct cs35l56_private *cs35l56)
 {
-	struct snd_soc_dapm_context *dapm = snd_soc_component_get_dapm(cs35l56->component);
+	struct snd_soc_dapm_context *dapm = snd_soc_component_to_dapm(cs35l56->component);
 	int ret;
 
-	ret = snd_soc_component_enable_pin(cs35l56->component, "Calibrate");
+	ret = snd_soc_dapm_enable_pin(dapm, "Calibrate");
 	if (ret)
 		return ERR_PTR(ret);
 
@@ -894,9 +915,9 @@ static struct snd_soc_dapm_context *cs35l56_power_up_for_cal(struct cs35l56_priv
 
 static void cs35l56_power_down_after_cal(struct cs35l56_private *cs35l56)
 {
-	struct snd_soc_dapm_context *dapm = snd_soc_component_get_dapm(cs35l56->component);
+	struct snd_soc_dapm_context *dapm = snd_soc_component_to_dapm(cs35l56->component);
 
-	snd_soc_component_disable_pin(cs35l56->component, "Calibrate");
+	snd_soc_dapm_disable_pin(dapm, "Calibrate");
 	snd_soc_dapm_sync(dapm);
 }
 
@@ -1024,6 +1045,68 @@ static const struct cs35l56_cal_debugfs_fops cs35l56_cal_debugfs_fops = {
 	},
 };
 
+static int cs35l56_cal_data_rb_ctl_get(struct snd_kcontrol *kcontrol,
+				    struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *component = snd_kcontrol_chip(kcontrol);
+	struct cs35l56_private *cs35l56 = snd_soc_component_get_drvdata(component);
+
+	if (!cs35l56->base.cal_data_valid)
+		return -ENODATA;
+
+	memcpy(ucontrol->value.bytes.data, &cs35l56->base.cal_data,
+	       sizeof(cs35l56->base.cal_data));
+
+	return 0;
+}
+
+static int cs35l56_cal_data_ctl_get(struct snd_kcontrol *kcontrol,
+				    struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *component = snd_kcontrol_chip(kcontrol);
+	struct cs35l56_private *cs35l56 = snd_soc_component_get_drvdata(component);
+
+	/*
+	 * This control is write-only but mixer libraries often try to read
+	 * a control before writing it. So we have to implement read.
+	 * Return zeros so a write of valid data will always be a change
+	 * from its "current value".
+	 */
+	memset(ucontrol->value.bytes.data, 0, sizeof(cs35l56->base.cal_data));
+
+	return 0;
+}
+
+static int cs35l56_cal_data_ctl_set(struct snd_kcontrol *kcontrol,
+				    struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *component = snd_kcontrol_chip(kcontrol);
+	struct cs35l56_private *cs35l56 = snd_soc_component_get_drvdata(component);
+	const struct cirrus_amp_cal_data *cal_data = (const void *)ucontrol->value.bytes.data;
+	int ret;
+
+	if (cs35l56->base.cal_data_valid)
+		return -EACCES;
+
+	ret = cs35l56_stash_calibration(&cs35l56->base, cal_data);
+	if (ret)
+		return ret;
+
+	ret = cs35l56_new_cal_data_apply(cs35l56);
+	if (ret < 0)
+		return ret;
+
+	return 1;
+}
+
+static const struct snd_kcontrol_new cs35l56_cal_data_restore_controls[] = {
+	SND_SOC_BYTES_E("CAL_DATA", 0, sizeof(struct cirrus_amp_cal_data) / sizeof(u32),
+			cs35l56_cal_data_ctl_get, cs35l56_cal_data_ctl_set),
+	SND_SOC_BYTES_E_ACC("CAL_DATA_RB", 0, sizeof(struct cirrus_amp_cal_data) / sizeof(u32),
+			cs35l56_cal_data_rb_ctl_get, NULL,
+			SNDRV_CTL_ELEM_ACCESS_READ | SNDRV_CTL_ELEM_ACCESS_VOLATILE),
+};
+
 static int cs35l56_set_fw_suffix(struct cs35l56_private *cs35l56)
 {
 	if (cs35l56->dsp.fwf_suffix)
@@ -1054,6 +1137,7 @@ static int cs35l56_set_fw_suffix(struct cs35l56_private *cs35l56)
 
 static int cs35l56_component_probe(struct snd_soc_component *component)
 {
+	struct snd_soc_dapm_context *dapm = snd_soc_component_to_dapm(component);
 	struct cs35l56_private *cs35l56 = snd_soc_component_get_drvdata(component);
 	struct dentry *debugfs_root = component->debugfs_root;
 	unsigned short vendor, device;
@@ -1118,10 +1202,16 @@ static int cs35l56_component_probe(struct snd_soc_component *component)
 		break;
 	}
 
+	if (!ret && IS_ENABLED(CONFIG_SND_SOC_CS35L56_CAL_SET_CTRL)) {
+		ret = snd_soc_add_component_controls(component,
+						     cs35l56_cal_data_restore_controls,
+						     ARRAY_SIZE(cs35l56_cal_data_restore_controls));
+	}
+
 	if (ret)
 		return dev_err_probe(cs35l56->base.dev, ret, "unable to add controls\n");
 
-	ret = snd_soc_component_disable_pin(component, "Calibrate");
+	ret = snd_soc_dapm_disable_pin(dapm, "Calibrate");
 	if (ret)
 		return ret;
 
@@ -1159,6 +1249,7 @@ static int cs35l56_set_bias_level(struct snd_soc_component *component,
 				  enum snd_soc_bias_level level)
 {
 	struct cs35l56_private *cs35l56 = snd_soc_component_get_drvdata(component);
+	struct snd_soc_dapm_context *dapm = snd_soc_component_to_dapm(component);
 
 	switch (level) {
 	case SND_SOC_BIAS_STANDBY:
@@ -1166,7 +1257,7 @@ static int cs35l56_set_bias_level(struct snd_soc_component *component,
 		 * Wait for patching to complete when transitioning from
 		 * BIAS_OFF to BIAS_STANDBY
 		 */
-		if (snd_soc_component_get_bias_level(component) == SND_SOC_BIAS_OFF)
+		if (snd_soc_dapm_get_bias_level(dapm) == SND_SOC_BIAS_OFF)
 			cs35l56_wait_dsp_ready(cs35l56);
 
 		break;

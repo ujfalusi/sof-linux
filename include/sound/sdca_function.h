@@ -64,6 +64,7 @@ struct sdca_function_desc;
  * @SDCA_FUNCTION_TYPE_RJ: Retaskable jack.
  * @SDCA_FUNCTION_TYPE_SIMPLE_JACK: Subset of UAJ.
  * @SDCA_FUNCTION_TYPE_HID: Human Interface Device, for e.g. buttons.
+ * @SDCA_FUNCTION_TYPE_COMPANION_AMP: Sources audio from another amp.
  * @SDCA_FUNCTION_TYPE_IMP_DEF: Implementation-defined function.
  *
  * SDCA Function Types from SDCA specification v1.0a Section 5.1.2
@@ -83,6 +84,7 @@ enum sdca_function_type {
 	SDCA_FUNCTION_TYPE_RJ				= 0x07,
 	SDCA_FUNCTION_TYPE_SIMPLE_JACK			= 0x08,
 	SDCA_FUNCTION_TYPE_HID				= 0x0A,
+	SDCA_FUNCTION_TYPE_COMPANION_AMP		= 0x0B,
 	SDCA_FUNCTION_TYPE_IMP_DEF			= 0x1F,
 };
 
@@ -96,6 +98,7 @@ enum sdca_function_type {
 #define	SDCA_FUNCTION_TYPE_RJ_NAME			"RJ"
 #define	SDCA_FUNCTION_TYPE_SIMPLE_NAME			"SimpleJack"
 #define	SDCA_FUNCTION_TYPE_HID_NAME			"HID"
+#define	SDCA_FUNCTION_TYPE_COMPANION_AMP_NAME		"CompanionAmp"
 #define	SDCA_FUNCTION_TYPE_IMP_DEF_NAME			"ImplementationDefined"
 
 /**
@@ -608,7 +611,7 @@ enum sdca_entity0_controls {
 #define SDCA_CTL_NDAI_PACKETTYPE_NAME			"NDAI Packet Type"
 #define SDCA_CTL_MIXER_NAME				"Mixer"
 #define SDCA_CTL_SELECTOR_NAME				"Selector"
-#define SDCA_CTL_MUTE_NAME				"Mute"
+#define SDCA_CTL_MUTE_NAME				"Channel"
 #define SDCA_CTL_CHANNEL_VOLUME_NAME			"Channel Volume"
 #define SDCA_CTL_AGC_NAME				"AGC"
 #define SDCA_CTL_BASS_BOOST_NAME			"Bass Boost"
@@ -1452,6 +1455,8 @@ static inline u32 sdca_range_search(struct sdca_control_range *range,
 int sdca_parse_function(struct device *dev, struct sdw_slave *sdw,
 			struct sdca_function_desc *desc,
 			struct sdca_function_data *function);
+
+const char *sdca_find_terminal_name(enum sdca_terminal_type type);
 
 struct sdca_control *sdca_selector_find_control(struct device *dev,
 						struct sdca_entity *entity,

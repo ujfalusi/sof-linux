@@ -962,8 +962,8 @@ int cs35l56_get_calibration(struct cs35l56_base *cs35l56_base)
 }
 EXPORT_SYMBOL_NS_GPL(cs35l56_get_calibration, "SND_SOC_CS35L56_SHARED");
 
-static int cs35l56_stash_calibration(struct cs35l56_base *cs35l56_base,
-				     const struct cirrus_amp_cal_data *data)
+int cs35l56_stash_calibration(struct cs35l56_base *cs35l56_base,
+			      const struct cirrus_amp_cal_data *data)
 {
 
 	/* Ignore if it is empty */
@@ -980,6 +980,7 @@ static int cs35l56_stash_calibration(struct cs35l56_base *cs35l56_base,
 
 	return 0;
 }
+EXPORT_SYMBOL_NS_GPL(cs35l56_stash_calibration, "SND_SOC_CS35L56_SHARED");
 
 static int cs35l56_perform_calibration(struct cs35l56_base *cs35l56_base)
 {
@@ -1262,6 +1263,54 @@ void cs35l56_remove_cal_debugfs(struct cs35l56_base *cs35l56_base)
 }
 EXPORT_SYMBOL_NS_GPL(cs35l56_remove_cal_debugfs, "SND_SOC_CS35L56_SHARED");
 
+const char * const cs35l56_cal_set_status_text[] = {
+	"Unknown", "Default", "Set",
+};
+EXPORT_SYMBOL_NS_GPL(cs35l56_cal_set_status_text, "SND_SOC_CS35L56_SHARED");
+
+int cs35l56_cal_set_status_get(struct cs35l56_base *cs35l56_base,
+			       struct snd_ctl_elem_value *uvalue)
+{
+	struct cs_dsp *dsp = cs35l56_base->dsp;
+	__be32 cal_set_status_be;
+	int alg_id;
+	int ret;
+
+	switch (cs35l56_base->type) {
+	case 0x54:
+	case 0x56:
+	case 0x57:
+		alg_id = 0x9f210;
+		break;
+	default:
+		alg_id = 0xbf210;
+		break;
+	}
+
+	scoped_guard(mutex, &dsp->pwr_lock) {
+		ret = cs_dsp_coeff_read_ctrl(cs_dsp_get_ctl(dsp,
+							    "CAL_SET_STATUS",
+							    WMFW_ADSP2_YM, alg_id),
+					      0, &cal_set_status_be,
+					      sizeof(cal_set_status_be));
+	}
+	if (ret) {
+		uvalue->value.enumerated.item[0] = CS35L56_CAL_SET_STATUS_UNKNOWN;
+		return 0;
+	}
+
+	switch (be32_to_cpu(cal_set_status_be)) {
+	case CS35L56_CAL_SET_STATUS_DEFAULT:
+	case CS35L56_CAL_SET_STATUS_SET:
+		uvalue->value.enumerated.item[0] = be32_to_cpu(cal_set_status_be);
+		return 0;
+	default:
+		uvalue->value.enumerated.item[0] = CS35L56_CAL_SET_STATUS_UNKNOWN;
+		return 0;
+	}
+}
+EXPORT_SYMBOL_NS_GPL(cs35l56_cal_set_status_get, "SND_SOC_CS35L56_SHARED");
+
 int cs35l56_read_prot_status(struct cs35l56_base *cs35l56_base,
 			     bool *fw_missing, unsigned int *fw_version)
 {
@@ -1287,6 +1336,23 @@ int cs35l56_read_prot_status(struct cs35l56_base *cs35l56_base,
 	return 0;
 }
 EXPORT_SYMBOL_NS_GPL(cs35l56_read_prot_status, "SND_SOC_CS35L56_SHARED");
+
+void cs35l56_warn_if_firmware_missing(struct cs35l56_base *cs35l56_base)
+{
+	unsigned int firmware_version;
+	bool firmware_missing;
+	int ret;
+
+	ret = cs35l56_read_prot_status(cs35l56_base, &firmware_missing, &firmware_version);
+	if (ret)
+		return;
+
+	if (!firmware_missing)
+		return;
+
+	dev_warn(cs35l56_base->dev, "FIRMWARE_MISSING\n");
+}
+EXPORT_SYMBOL_NS_GPL(cs35l56_warn_if_firmware_missing, "SND_SOC_CS35L56_SHARED");
 
 void cs35l56_log_tuning(struct cs35l56_base *cs35l56_base, struct cs_dsp *cs_dsp)
 {
