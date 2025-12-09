@@ -24,10 +24,6 @@ static char *override_fw_path;
 module_param_named(fw_path, override_fw_path, charp, 0444);
 MODULE_PARM_DESC(fw_path, "alternate path for SOF firmware.");
 
-static char *override_fw_postfix;
-module_param_named(fw_key_type, override_fw_postfix, charp, 0444);
-MODULE_PARM_DESC(fw_key_type, "alternate subdir for SOF firmware based on signing key (community, dbgkey, etc).");
-
 static char *override_fw_filename;
 module_param_named(fw_filename, override_fw_filename, charp, 0444);
 MODULE_PARM_DESC(fw_filename, "alternate filename for SOF firmware.");
@@ -282,10 +278,6 @@ static int sof_select_ipc_and_paths(struct snd_sof_dev *sdev)
 	if (base_profile->fw_path)
 		dev_dbg(dev, "Module parameter used, changed fw path to %s\n",
 			base_profile->fw_path);
-	else if (override_fw_postfix)
-		dev_dbg(dev,
-			"Module parameter used, default fw path extended with: %s\n",
-			override_fw_postfix);
 	else if (base_profile->fw_path_postfix)
 		dev_dbg(dev, "Path postfix appended to default fw path: %s\n",
 			base_profile->fw_path_postfix);
@@ -293,10 +285,6 @@ static int sof_select_ipc_and_paths(struct snd_sof_dev *sdev)
 	if (base_profile->fw_lib_path)
 		dev_dbg(dev, "Module parameter used, changed fw_lib path to %s\n",
 			base_profile->fw_lib_path);
-	else if (override_fw_postfix)
-		dev_dbg(dev,
-			"Module parameter used, default fw_lib path extended with: %s\n",
-			override_fw_postfix);
 	else if (base_profile->fw_lib_path_postfix)
 		dev_dbg(dev, "Path postfix appended to default fw_lib path: %s\n",
 			base_profile->fw_lib_path_postfix);
@@ -643,14 +631,10 @@ sof_apply_profile_override(struct sof_loadable_file_profile *path_override,
 		path_override->ipc_type = override_ipc_type;
 	if (override_fw_path)
 		path_override->fw_path = override_fw_path;
-	else if (override_fw_postfix)
-		path_override->fw_path_postfix = override_fw_postfix;
 	if (override_fw_filename)
 		path_override->fw_name = override_fw_filename;
 	if (override_lib_path)
 		path_override->fw_lib_path = override_lib_path;
-	else if (override_fw_postfix)
-		path_override->fw_lib_path_postfix = override_fw_postfix;
 	if (override_tplg_path)
 		path_override->tplg_path = override_tplg_path;
 	if (override_tplg_filename) {
