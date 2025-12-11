@@ -579,6 +579,20 @@ static int sof_ipc4_compr_trigger(struct snd_soc_component *component,
 	return ret;
 }
 
+static int sof_ipc4_compr_mmap(struct snd_soc_component *component,
+			       struct snd_compr_stream *stream,
+			       struct vm_area_struct *vma)
+{
+	struct snd_compr_runtime *runtime = stream->runtime;
+	struct device *dev = component->dev;
+
+	if (!runtime->dma_area)
+		return -ENXIO;
+
+	return dma_mmap_coherent(dev, vma, runtime->dma_area, runtime->dma_addr,
+				 runtime->dma_bytes);
+}
+
 static int sof_ipc4_compr_copy_playback(struct snd_soc_component *component,
 					struct snd_compr_stream *cstream,
 					char __user *buf, size_t count)
@@ -764,5 +778,6 @@ const struct snd_compress_ops sof_ipc4_compressed_ops = {
 	.get_params	= sof_ipc4_compr_get_params,
 	.trigger	= sof_ipc4_compr_trigger,
 	.pointer	= sof_ipc4_compr_pointer,
+	.mmap		= sof_ipc4_compr_mmap,
 	.copy		= sof_ipc4_compr_copy,
 };
