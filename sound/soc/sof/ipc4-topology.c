@@ -3264,6 +3264,36 @@ static int sof_ipc4_control_setup(struct snd_sof_dev *sdev, struct snd_sof_contr
 	return 0;
 }
 
+static void
+sof_ipc4_add_init_ext_module_data(struct snd_sof_dev *sdev,
+				  struct snd_sof_widget *swidget,
+				  u32 *payload, u32 *ext_pos,
+				  struct sof_ipc4_module_init_ext_object **hdr)
+{
+	struct sof_ipc4_process *process = swidget->private;
+	u32 data_size;
+	void *data;
+
+	/*
+	 * Check if widget is process module and if it is using
+	 * init_ext_module_data
+	 */
+	if (!WIDGET_IS_PROCESS(swidget->id) || !process->init_ext_module_size)
+		return;
+
+	data_size = process->init_ext_module_size;
+	data = process->init_ext_module_data;
+
+	*hdr = (struct sof_ipc4_module_init_ext_object *)&payload[*ext_pos];
+	(*hdr)->header = SOF_IPC4_MOD_INIT_EXT_OBJ_ID(SOF_IPC4_MOD_INIT_DATA_ID_MODULE_DATA) |
+		SOF_IPC4_MOD_INIT_EXT_OBJ_WORDS(DIV_ROUND_UP(data_size, sizeof(u32)));
+	*ext_pos += DIV_ROUND_UP(sizeof(*(*hdr)), sizeof(u32));
+
+	memcpy(&payload[*ext_pos], data, data_size);
+
+	*ext_pos += DIV_ROUND_UP(data_size, sizeof(u32));
+}
+
 static int sof_ipc4_widget_setup_msg_payload(struct snd_sof_dev *sdev,
 					     struct snd_sof_widget *swidget,
 					     struct sof_ipc4_msg *msg,
@@ -3272,19 +3302,10 @@ static int sof_ipc4_widget_setup_msg_payload(struct snd_sof_dev *sdev,
 {
 	struct sof_ipc4_mod_init_ext_dp_memory_data *dp_mem_data;
 	struct sof_ipc4_module_init_ext_init *ext_init;
-	struct sof_ipc4_module_init_ext_object *hdr;
+	struct sof_ipc4_module_init_ext_object *hdr = NULL;
 	int new_size;
 	u32 *payload;
 	u32 ext_pos;
-
-	/* For the moment the only reason for adding init_ext_init payload is DP
-	 * memory data. If both stack and heap size are 0 (= use default), then
-	 * there is no need for init_ext_init payload.
-	 */
-	if (swidget->comp_domain != SOF_COMP_DOMAIN_DP) {
-		msg->extension &= ~SOF_IPC4_MOD_EXT_EXTENDED_INIT_MASK;
-		return 0;
-	}
 
 	payload = kzalloc(sdev->ipc->max_payload_size, GFP_KERNEL);
 	if (!payload)
@@ -3300,7 +3321,7 @@ static int sof_ipc4_widget_setup_msg_payload(struct snd_sof_dev *sdev,
 	/* Add dp_memory_data if comp_domain indicates DP */
 	if (swidget->comp_domain == SOF_COMP_DOMAIN_DP) {
 		hdr = (struct sof_ipc4_module_init_ext_object *)&payload[ext_pos];
-		hdr->header = SOF_IPC4_MOD_INIT_EXT_OBJ_LAST_MASK |
+		hdr->header =
 			SOF_IPC4_MOD_INIT_EXT_OBJ_ID(SOF_IPC4_MOD_INIT_DATA_ID_DP_DATA) |
 			SOF_IPC4_MOD_INIT_EXT_OBJ_WORDS(DIV_ROUND_UP(sizeof(*dp_mem_data),
 								     sizeof(u32)));
@@ -3312,7 +3333,15 @@ static int sof_ipc4_widget_setup_msg_payload(struct snd_sof_dev *sdev,
 		ext_pos += DIV_ROUND_UP(sizeof(*dp_mem_data), sizeof(u32));
 	}
 
-	/* If another array object is added, remember clear previous OBJ_LAST bit */
+	sof_ipc4_add_init_ext_module_data(sdev, swidget, payload, &ext_pos, &hdr);
+
+	/* Set last bit for the last object in the array */
+	if (hdr) {
+		hdr->header |= SOF_IPC4_MOD_INIT_EXT_OBJ_LAST_MASK;
+	} else {
+		kfree(payload);
+		return 0;
+	}
 
 	/* Calculate final size and check that it fits to max payload size */
 	new_size = ext_pos * sizeof(u32) + ipc_size;
