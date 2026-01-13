@@ -1790,6 +1790,8 @@ void dpcm_be_dai_stop(struct snd_soc_pcm_runtime *fe, int stream,
 		}
 
 		__soc_pcm_close(be, be_substream);
+		if (fe->fe_compr)
+			kfree(be_substream->runtime);
 		be_substream->runtime = NULL;
 		be->dpcm[stream].state = SND_SOC_DPCM_STATE_CLOSE;
 	}
@@ -1837,7 +1839,16 @@ int dpcm_be_dai_startup(struct snd_soc_pcm_runtime *fe, int stream)
 		dev_dbg(be->dev, "ASoC: open %s BE %s\n",
 			snd_pcm_direction_name(stream), be->dai_link->name);
 
-		be_substream->runtime = fe_substream->runtime;
+		if (!fe->fe_compr) {
+			be_substream->runtime = fe_substream->runtime;
+		} else {
+			be_substream->runtime = kzalloc(sizeof(*be_substream->runtime), GFP_KERNEL);
+			if (!be_substream->runtime) {
+				err = -ENOMEM;
+				goto unwind;
+			}
+		}
+
 		err = __soc_pcm_open(be, be_substream);
 		if (err < 0) {
 			be->dpcm[stream].users--;
