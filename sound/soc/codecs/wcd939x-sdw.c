@@ -1408,7 +1408,6 @@ static void wcd9390_remove(struct sdw_slave *pdev)
 	struct device *dev = &pdev->dev;
 
 	component_del(dev, &wcd_sdw_component_ops);
-
 }
 
 static const struct sdw_device_id wcd9390_slave_id[] = {
