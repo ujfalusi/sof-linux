@@ -760,6 +760,42 @@ struct asoc_sdw_codec_info codec_info_list[] = {
 		.aux_num = 1,
 	},
 	{
+		.part_id = 0x4747,
+		.name_prefix = "cs47l47",
+		.dais = {
+			{
+				.direction = {true, false},
+				.codec_name = "snd_soc_sdca.UAJ.1",
+				.dai_name = "IT 41",
+				.dai_type = SOC_SDW_DAI_TYPE_JACK,
+				.dailink = {SOC_SDW_JACK_OUT_DAI_ID, SOC_SDW_UNUSED_DAI_ID},
+				.rtd_init = asoc_sdw_cs47l47_hs_rtd_init,
+			},
+			{
+				.direction = {false, true},
+				.codec_name = "snd_soc_sdca.SmartMic.0",
+				.dai_name = "OT 113",
+				.dai_type = SOC_SDW_DAI_TYPE_MIC,
+				.dailink = {SOC_SDW_UNUSED_DAI_ID, SOC_SDW_DMIC_DAI_ID},
+				.rtd_init = asoc_sdw_cs47l47_dmic_rtd_init,
+			},
+			{
+				.direction = {false, true},
+				.codec_name = "snd_soc_sdca.UAJ.1",
+				.dai_name = "OT 36",
+				.dai_type = SOC_SDW_DAI_TYPE_JACK,
+				.dailink = {SOC_SDW_UNUSED_DAI_ID, SOC_SDW_JACK_IN_DAI_ID},
+			},
+		},
+		.dai_num = 3,
+		.auxs = {
+			{
+				.codec_name = "snd_soc_sdca.HID.2",
+			},
+		},
+		.aux_num = 1,
+	},
+	{
 		.part_id = 0xaaaa, /* generic codec mockup */
 		.name_prefix = "sdw_mockup_mmulti-function",
 		.version_id = 0,
@@ -1221,7 +1257,7 @@ const char *asoc_sdw_get_codec_name(struct device *dev,
 		component = snd_soc_lookup_component_by_name(dai_info->codec_name);
 		if (component) {
 			dev_dbg(dev, "%s found component %s for codec_name %s\n",
-			       __func__, component->name, dai_info->codec_name);
+				__func__, component->name, dai_info->codec_name);
 			return devm_kstrdup(dev, component->name, GFP_KERNEL);
 		} else {
 			return devm_kstrdup(dev, dai_info->codec_name, GFP_KERNEL);
@@ -1540,11 +1576,11 @@ int asoc_sdw_parse_sdw_endpoints(struct snd_soc_card *card,
 			for (j = 0; j < codec_info->aux_num; j++) {
 				struct snd_soc_component *component;
 
-				component = snd_soc_lookup_component_by_name(codec_info->auxs[j].
-									     codec_name);
+				component = snd_soc_lookup_component_by_name(codec_info->auxs[j].codec_name);
 				if (component) {
 					dev_dbg(dev, "%s found component %s for aux name %s\n",
-					       __func__, component->name, codec_info->auxs[j].codec_name);
+						__func__, component->name,
+						codec_info->auxs[j].codec_name);
 					soc_aux->dlc.name = component->name;
 				} else {
 					soc_aux->dlc.name = codec_info->auxs[j].codec_name;
