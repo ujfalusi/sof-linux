@@ -9,6 +9,7 @@
  *                         Cirrus Logic International Semiconductor Ltd.
  */
 
+#include <kunit/static_stub.h>
 #include <kunit/visibility.h>
 #include <linux/cleanup.h>
 #include <linux/ctype.h>
@@ -18,6 +19,7 @@
 #include <linux/minmax.h>
 #include <linux/module.h>
 #include <linux/moduleparam.h>
+#include <linux/ratelimit.h>
 #include <linux/seq_file.h>
 #include <linux/slab.h>
 #include <linux/vmalloc.h>
@@ -30,45 +32,47 @@
 /*
  * When the KUnit test is running the error-case tests will cause a lot
  * of messages. Rate-limit to prevent overflowing the kernel log buffer
- * during KUnit test runs.
+ * during KUnit test runs and allow the test to redirect this function.
+ * In normal (not KUnit) builds this collapses to only return true.
  */
-#if IS_ENABLED(CONFIG_FW_CS_DSP_KUNIT_TEST)
-bool cs_dsp_suppress_err_messages;
-EXPORT_SYMBOL_IF_KUNIT(cs_dsp_suppress_err_messages);
+VISIBLE_IF_KUNIT bool cs_dsp_can_emit_message(void)
+{
+	KUNIT_STATIC_STUB_REDIRECT(cs_dsp_can_emit_message);
 
-bool cs_dsp_suppress_warn_messages;
-EXPORT_SYMBOL_IF_KUNIT(cs_dsp_suppress_warn_messages);
+	if (IS_ENABLED(CONFIG_FW_CS_DSP_KUNIT_TEST)) {
+		static DEFINE_RATELIMIT_STATE(_rs,
+					      DEFAULT_RATELIMIT_INTERVAL,
+					      DEFAULT_RATELIMIT_BURST);
+		return __ratelimit(&_rs);
+	}
 
-bool cs_dsp_suppress_info_messages;
-EXPORT_SYMBOL_IF_KUNIT(cs_dsp_suppress_info_messages);
+	return true;
+}
+EXPORT_SYMBOL_IF_KUNIT(cs_dsp_can_emit_message);
 
-#define cs_dsp_err(_dsp, fmt, ...) \
-	do { \
-		if (!cs_dsp_suppress_err_messages) \
-			dev_err_ratelimited(_dsp->dev, "%s: " fmt, _dsp->name, ##__VA_ARGS__); \
+#define cs_dsp_err(_dsp, fmt, ...)						   \
+	do {									   \
+		if (cs_dsp_can_emit_message())					   \
+			dev_err(_dsp->dev, "%s: " fmt, _dsp->name, ##__VA_ARGS__); \
 	} while (false)
-#define cs_dsp_warn(_dsp, fmt, ...) \
-	do { \
-		if (!cs_dsp_suppress_warn_messages) \
-			dev_warn_ratelimited(_dsp->dev, "%s: " fmt, _dsp->name, ##__VA_ARGS__); \
+
+#define cs_dsp_warn(_dsp, fmt, ...)						    \
+	do {									    \
+		if (cs_dsp_can_emit_message())					    \
+			dev_warn(_dsp->dev, "%s: " fmt, _dsp->name, ##__VA_ARGS__); \
 	} while (false)
-#define cs_dsp_info(_dsp, fmt, ...) \
-	do { \
-		if (!cs_dsp_suppress_info_messages) \
-			dev_info_ratelimited(_dsp->dev, "%s: " fmt, _dsp->name, ##__VA_ARGS__); \
+
+#define cs_dsp_info(_dsp, fmt, ...)						    \
+	do {									    \
+		if (cs_dsp_can_emit_message())					    \
+			dev_info(_dsp->dev, "%s: " fmt, _dsp->name, ##__VA_ARGS__); \
 	} while (false)
-#define cs_dsp_dbg(_dsp, fmt, ...) \
-	dev_dbg_ratelimited(_dsp->dev, "%s: " fmt, _dsp->name, ##__VA_ARGS__)
-#else
-#define cs_dsp_err(_dsp, fmt, ...) \
-	dev_err(_dsp->dev, "%s: " fmt, _dsp->name, ##__VA_ARGS__)
-#define cs_dsp_warn(_dsp, fmt, ...) \
-	dev_warn(_dsp->dev, "%s: " fmt, _dsp->name, ##__VA_ARGS__)
-#define cs_dsp_info(_dsp, fmt, ...) \
-	dev_info(_dsp->dev, "%s: " fmt, _dsp->name, ##__VA_ARGS__)
-#define cs_dsp_dbg(_dsp, fmt, ...) \
-	dev_dbg(_dsp->dev, "%s: " fmt, _dsp->name, ##__VA_ARGS__)
-#endif
+
+#define cs_dsp_dbg(_dsp, fmt, ...)						   \
+	do {									   \
+		if (cs_dsp_can_emit_message())					   \
+			dev_dbg(_dsp->dev, "%s: " fmt, _dsp->name, ##__VA_ARGS__); \
+	} while (false)
 
 #define ADSP1_CONTROL_1                   0x00
 #define ADSP1_CONTROL_2                   0x02
@@ -1649,11 +1653,17 @@ static int cs_dsp_load(struct cs_dsp *dsp, const struct firmware *firmware,
 			   region_name);
 
 		if (reg) {
+			/*
+			 * Although we expect the underlying bus does not require
+			 * physically-contiguous buffers, we pessimistically use
+			 * a temporary buffer instead of trusting that the
+			 * alignment of region->data is ok.
+			 */
 			region_len = le32_to_cpu(region->len);
 			if (region_len > buf_len) {
 				buf_len = round_up(region_len, PAGE_SIZE);
-				kfree(buf);
-				buf = kmalloc(buf_len, GFP_KERNEL | GFP_DMA);
+				vfree(buf);
+				buf = vmalloc(buf_len);
 				if (!buf) {
 					ret = -ENOMEM;
 					goto out_fw;
@@ -1682,7 +1692,7 @@ static int cs_dsp_load(struct cs_dsp *dsp, const struct firmware *firmware,
 
 	ret = 0;
 out_fw:
-	kfree(buf);
+	vfree(buf);
 
 	if (ret == -EOVERFLOW)
 		cs_dsp_err(dsp, "%s: file content overflows file data\n", file);
@@ -2370,11 +2380,17 @@ static int cs_dsp_load_coeff(struct cs_dsp *dsp, const struct firmware *firmware
 		}
 
 		if (reg) {
+			/*
+			 * Although we expect the underlying bus does not require
+			 * physically-contiguous buffers, we pessimistically use
+			 * a temporary buffer instead of trusting that the
+			 * alignment of blk->data is ok.
+			 */
 			region_len = le32_to_cpu(blk->len);
 			if (region_len > buf_len) {
 				buf_len = round_up(region_len, PAGE_SIZE);
-				kfree(buf);
-				buf = kmalloc(buf_len, GFP_KERNEL | GFP_DMA);
+				vfree(buf);
+				buf = vmalloc(buf_len);
 				if (!buf) {
 					ret = -ENOMEM;
 					goto out_fw;
@@ -2405,7 +2421,7 @@ static int cs_dsp_load_coeff(struct cs_dsp *dsp, const struct firmware *firmware
 
 	ret = 0;
 out_fw:
-	kfree(buf);
+	vfree(buf);
 
 	if (ret == -EOVERFLOW)
 		cs_dsp_err(dsp, "%s: file content overflows file data\n", file);
