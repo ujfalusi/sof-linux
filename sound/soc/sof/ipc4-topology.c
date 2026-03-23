@@ -2101,8 +2101,9 @@ static void sof_ipc4_host_config(struct snd_sof_dev *sdev, struct snd_sof_widget
 
 static void
 sof_ipc4_set_host_copier_dma_buffer_size(struct snd_sof_widget *swidget,
-					 unsigned int fe_period_bytes)
+					 struct snd_pcm_hw_params *fe_params)
 {
+	unsigned int fe_period_bytes = params_period_bytes(fe_params);
 	unsigned int min_size, no_headroom_mark, fw_period_bytes;
 	struct snd_soc_component *scomp = swidget->scomp;
 	struct sof_ipc4_copier_data *copier_data;
@@ -2153,13 +2154,19 @@ sof_ipc4_set_host_copier_dma_buffer_size(struct snd_sof_widget *swidget,
 	 * depth specified in topology
 	 */
 	if (deep_buffer_dma_ms <= SOF_IPC4_MIN_DMA_BUFFER_SIZE ||
-	    fe_period_bytes < (min_size * 2))
+	    fe_period_bytes < (min_size * 2)) {
 		buffer_bytes = min_size;
-	else if (fe_period_bytes < no_headroom_mark)
-		buffer_bytes = fe_period_bytes - min_size;
-	else
-		buffer_bytes = min(deep_buffer_dma_ms * fw_period_bytes,
-				   fe_period_bytes);
+		fe_params->step_chunk = fe_period_bytes;
+	} else {
+		if (fe_period_bytes < no_headroom_mark)
+			buffer_bytes = fe_period_bytes - min_size;
+		else
+			buffer_bytes = min(deep_buffer_dma_ms * fw_period_bytes,
+					   fe_period_bytes);
+
+		fe_params->step_chunk = buffer_bytes -
+					SOF_IPC4_HOST_DMA_THRESHOLD_SIZE * fe_period_bytes;
+	}
 
 out:
 	dev_dbg(scomp->dev,
@@ -2170,6 +2177,13 @@ out:
 		buffer_bytes, fe_period_bytes / fw_period_bytes, fe_period_bytes);
 
 	copier_data->gtw_cfg.dma_buffer_size = buffer_bytes;
+	fe_params->init_chunk = buffer_bytes;
+
+	/* Convert the chunk values to frames */
+	fe_params->init_chunk /= snd_pcm_format_size(params_format(fe_params),
+						     params_channels(fe_params));
+	fe_params->step_chunk /= snd_pcm_format_size(params_format(fe_params),
+						     params_channels(fe_params));;
 }
 
 static int
@@ -2615,8 +2629,7 @@ _sof_ipc4_prepare_copier_module(struct snd_sof_widget *swidget,
 	switch (swidget->id) {
 	case snd_soc_dapm_aif_in:
 	case snd_soc_dapm_aif_out:
-		sof_ipc4_set_host_copier_dma_buffer_size(swidget,
-							 params_period_bytes(fe_params));
+		sof_ipc4_set_host_copier_dma_buffer_size(swidget, fe_params);
 		break;
 	case snd_soc_dapm_dai_in:
 		copier_data->gtw_cfg.dma_buffer_size =

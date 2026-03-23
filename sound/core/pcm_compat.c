@@ -64,7 +64,10 @@ struct snd_pcm_hw_params32 {
 	u32 rate_num;
 	u32 rate_den;
 	u32 fifo_size;
-	unsigned char reserved[64];
+	unsigned char sync[16];
+	u32 init_chunk;
+	u32 step_chunk;
+	unsigned char reserved[40];
 };
 
 struct snd_pcm_sw_params32 {
@@ -247,9 +250,12 @@ static int snd_pcm_ioctl_hw_params_compat(struct snd_pcm_substream *substream,
 	if (!data)
 		return -ENOMEM;
 
-	/* only fifo_size (RO from userspace) is different, so just copy all */
+	/* copy common members and fix up 32-bit uframe fields explicitly */
 	if (copy_from_user(data, data32, sizeof(*data32)))
 		return -EFAULT;
+	data->fifo_size = data32->fifo_size;
+	data->init_chunk = data32->init_chunk;
+	data->step_chunk = data32->step_chunk;
 
 	if (refine) {
 		err = snd_pcm_hw_refine(substream, data);
@@ -262,7 +268,9 @@ static int snd_pcm_ioctl_hw_params_compat(struct snd_pcm_substream *substream,
 	if (err < 0)
 		return err;
 	if (copy_to_user(data32, data, sizeof(*data32)) ||
-	    put_user(data->fifo_size, &data32->fifo_size))
+	    put_user(data->fifo_size, &data32->fifo_size) ||
+	    put_user(data->init_chunk, &data32->init_chunk) ||
+	    put_user(data->step_chunk, &data32->step_chunk))
 		return -EFAULT;
 
 	if (! refine) {

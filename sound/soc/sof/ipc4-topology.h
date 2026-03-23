@@ -77,6 +77,12 @@
 #define SOF_IPC4_CHAIN_DMA_BUFFER_SIZE	5
 
 /*
+ * FW threshold when it triggers DMA transfer in case of DeepBuffer in firmware
+ * periods
+ */
+#define SOF_IPC4_HOST_DMA_THRESHOLD_SIZE	4
+
+/*
  * When the host DMA buffer size is larger than 8ms, the firmware switches from
  * a constant fill mode to burst mode, keeping a 4ms threshold to trigger a
  * transfer of approximately host DMA buffer size - 4ms after the initial burst
