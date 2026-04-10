@@ -2144,8 +2144,6 @@ static void snd_soc_unbind_card(struct snd_soc_card *card)
 {
 	if (snd_soc_card_is_instantiated(card)) {
 		card->instantiated = false;
-		snd_soc_flush_all_delayed_work(card);
-
 		soc_cleanup_card_resources(card);
 	}
 }
@@ -2565,7 +2563,6 @@ int snd_soc_register_card(struct snd_soc_card *card)
 	INIT_LIST_HEAD(&card->list);
 	INIT_LIST_HEAD(&card->rtd_list);
 	INIT_LIST_HEAD(&card->dapm_dirty);
-	INIT_LIST_HEAD(&card->dobj_list);
 
 	card->instantiated = 0;
 	mutex_init(&card->mutex);
@@ -2848,6 +2845,7 @@ int snd_soc_component_initialize(struct snd_soc_component *component,
 	INIT_LIST_HEAD(&component->dobj_list);
 	INIT_LIST_HEAD(&component->card_list);
 	INIT_LIST_HEAD(&component->list);
+	INIT_LIST_HEAD(&component->card_aux_list);
 	mutex_init(&component->io_mutex);
 
 	if (!component->name) {
@@ -2897,8 +2895,6 @@ int snd_soc_add_component(struct snd_soc_component *component,
 		if (!component->regmap)
 			component->regmap = dev_get_regmap(component->dev,
 							   NULL);
-		if (component->regmap)
-			snd_soc_component_setup_regmap(component);
 	}
 
 	/* see for_each_component */

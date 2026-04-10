@@ -487,7 +487,7 @@ static int entity_parse_su_device(struct device *dev,
 	if (!range)
 		return -EINVAL;
 
-	(*widget)->id = snd_soc_dapm_mux;
+	(*widget)->id = snd_soc_dapm_mux_named_ctl;
 	(*widget)->kcontrol_news = entity->group->ge.kctl;
 	(*widget)->num_kcontrols = 1;
 	(*widget)++;
@@ -850,7 +850,7 @@ static int q78_read(struct snd_soc_component *component,
 
 	reg_val = snd_soc_component_read(component, reg);
 
-	val = (sign_extend32(reg_val, mc->sign_bit) / mc->shift) - mc->min;
+	val = (sign_extend32(reg_val, mc->sign_bit) / (int)mc->shift) - mc->min;
 
 	return val & GENMASK(mc->sign_bit, 0);
 }
