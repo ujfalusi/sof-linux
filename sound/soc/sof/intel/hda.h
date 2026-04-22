@@ -582,28 +582,6 @@ struct sof_intel_hda_dev {
 	struct snd_sof_ipc_msg *delayed_ipc_tx_msg;
 };
 
-/*
- * Decode an HDA stream format word (SDxFMT / PPLCFMT) into the frame
- * size in bytes (channels * container bytes).
- */
-static inline unsigned int hda_fmt_to_frame_bytes(u16 fmt)
-{
-	static const unsigned int container_bytes[] = {
-		[0] = 1,	/* 8-bit */
-		[1] = 2,	/* 16-bit */
-		[2] = 4,	/* 20-bit in 32-bit container */
-		[3] = 4,	/* 24-bit in 32-bit container */
-		[4] = 4,	/* 32-bit */
-	};
-	unsigned int channels = (fmt & 0x0F) + 1;
-	unsigned int bits_enc = (fmt >> 4) & 0x7;
-
-	if (bits_enc >= ARRAY_SIZE(container_bytes))
-		bits_enc = 1; /* default 16-bit */
-
-	return channels * container_bytes[bits_enc];
-}
-
 static inline struct hdac_bus *sof_to_bus(struct snd_sof_dev *s)
 {
 	struct sof_intel_hda_dev *hda = s->pdata->hw_pdata;
