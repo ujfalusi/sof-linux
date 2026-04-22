@@ -508,24 +508,19 @@ static snd_pcm_uframes_t sof_pcm_pointer(struct snd_soc_component *component,
 	if (rtd->dai_link->no_pcm)
 		return 0;
 
-	spcm = snd_sof_find_spcm_dai(component, rtd);
-	if (!spcm)
-		return -EINVAL;
-
 	if (pcm_ops && pcm_ops->pointer)
 		ret = pcm_ops->pointer(component, substream, &host);
 
-	if (ret != -EOPNOTSUPP) {
-		spcm_dbg(spcm, substream->stream, "pcm_ops pointer: %lu\n", host);
+	if (ret != -EOPNOTSUPP)
 		return ret ? ret : host;
-	}
 
 	/* use dsp ops pointer callback directly if set */
-	if (sof_ops(sdev)->pcm_pointer) {
-		host = sof_ops(sdev)->pcm_pointer(sdev, substream);
-		spcm_dbg(spcm, substream->stream, "platform pointer: %lu\n", host);
-		return host;
-	}
+	if (sof_ops(sdev)->pcm_pointer)
+		return sof_ops(sdev)->pcm_pointer(sdev, substream);
+
+	spcm = snd_sof_find_spcm_dai(component, rtd);
+	if (!spcm)
+		return -EINVAL;
 
 	/* read position from DSP */
 	host = bytes_to_frames(substream->runtime,
@@ -535,7 +530,6 @@ static snd_pcm_uframes_t sof_pcm_pointer(struct snd_soc_component *component,
 
 	trace_sof_pcm_pointer_position(sdev, spcm, substream, host, dai);
 
-	spcm_dbg(spcm, substream->stream, "DSP pointer: %lu\n", host);
 	return host;
 }
 
@@ -817,26 +811,13 @@ static int sof_pcm_ack(struct snd_soc_component *component,
 static snd_pcm_sframes_t sof_pcm_delay(struct snd_soc_component *component,
 				       struct snd_pcm_substream *substream)
 {
-	struct snd_soc_pcm_runtime *rtd = snd_soc_substream_to_rtd(substream);
 	struct snd_sof_dev *sdev = snd_soc_component_get_drvdata(component);
 	const struct sof_ipc_pcm_ops *pcm_ops = sof_ipc_get_ops(sdev, pcm);
-	snd_pcm_sframes_t delay = 0;
-	struct snd_sof_pcm *spcm;
-
-	/* nothing to do for BE */
-	if (rtd->dai_link->no_pcm)
-		return 0;
-
-	spcm = snd_sof_find_spcm_dai(component, rtd);
-	if (!spcm)
-		return -EINVAL;
 
 	if (pcm_ops && pcm_ops->delay)
-		delay = pcm_ops->delay(component, substream);
+		return pcm_ops->delay(component, substream);
 
-	spcm_dbg(spcm, substream->stream, "delay: %lu\n", delay);
-
-	return delay;
+	return 0;
 }
 
 void snd_sof_new_platform_drv(struct snd_sof_dev *sdev)
