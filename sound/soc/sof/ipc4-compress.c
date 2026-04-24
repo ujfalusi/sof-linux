@@ -14,13 +14,14 @@
 #include "ipc4-topology.h"
 #include "ipc4-fw-reg.h"
 
+/* Maximum processing size of the decoder/encoder is 2048 bytes */
+#define SOF_IPC4_COMPR_MAX_PROCESSING_SIZE		(SZ_2K)
 
-#define SOF_IPC4_COMPR_MIN_FRAGMENT_SIZE	(SZ_2K)
-#define SOF_IPC4_COMPR_MAX_FRAGMENT_SIZE	(SZ_128K)
-#define SOF_IPC4_COMPR_MIN_FRAGMENTS		3
-#define SOF_IPC4_COMPR_MAX_FRAGMENTS		64
-#define SOF_IPC4_COMPR_MIN_BUFFER_SIZE		(SOF_IPC4_COMPR_MIN_FRAGMENT_SIZE * \
-						 SOF_IPC4_COMPR_MIN_FRAGMENTS)
+#define SOF_IPC4_COMPR_MIN_FRAGMENTS			3
+#define SOF_IPC4_COMPR_MAX_FRAGMENT_SIZE		(SZ_128K)
+#define SOF_IPC4_COMPR_MAX_FRAGMENTS			64
+#define SOF_IPC4_COMPR_MIN_BUFFER_SIZE(min_size)	((min_size) * \
+							 SOF_IPC4_COMPR_MIN_FRAGMENTS)
 
 struct sof_ipc4_compr_init_data {
 	struct snd_codec codec;
@@ -47,6 +48,20 @@ sof_ipc4_compr_get_module(struct snd_sof_pcm *spcm, int dir)
 	}
 
 	return NULL;
+}
+
+static u32 sof_ipc4_compr_calc_min_fragment_size(struct snd_sof_pcm_stream *sps)
+{
+	u32 host_buffer_estimate;
+
+	/* Estimated host DMA buffer size based on stereo S32_LE, 48KHz */
+	host_buffer_estimate = snd_pcm_format_size(SNDRV_PCM_FORMAT_S32_LE, 2 * 48);
+	host_buffer_estimate *= sps->dsp_max_burst_size_in_ms;
+	/*
+	 * The minimum fragment size must not be smaller than the processing size
+	 * or in case of deep buffer on host side, the host DMA buffer size.
+	 */
+	return max(SOF_IPC4_COMPR_MAX_PROCESSING_SIZE, host_buffer_estimate);
 }
 
 static int sof_ipc4_compr_open(struct snd_soc_component *component,
@@ -210,8 +225,11 @@ static int sof_ipc4_compr_get_caps(struct snd_soc_component *component,
 	}
 
 	caps->direction = dir;
-	caps->min_fragment_size = SOF_IPC4_COMPR_MIN_FRAGMENT_SIZE;
+	caps->min_fragment_size =
+		sof_ipc4_compr_calc_min_fragment_size(&spcm->stream[dir]);
 	caps->max_fragment_size = SOF_IPC4_COMPR_MAX_FRAGMENT_SIZE;
+	if (caps->max_fragment_size < caps->min_fragment_size)
+		caps->max_fragment_size = caps->min_fragment_size;
 
 	caps->min_fragments = SOF_IPC4_COMPR_MIN_FRAGMENTS;
 	caps->max_fragments = SOF_IPC4_COMPR_MAX_FRAGMENTS;
@@ -229,14 +247,15 @@ static int sof_ipc4_compr_alloc_pages(struct device *dev,
 				      struct snd_soc_component *component,
 				      struct snd_compr_stream *cstream)
 {
+	u32 min_fragment_size = sof_ipc4_compr_calc_min_fragment_size(sps);
 	struct snd_compr_runtime *crtd = cstream->runtime;
 	u64 fragments = crtd->buffer_size;
 	int ret;
 
-	if (crtd->buffer_size < SOF_IPC4_COMPR_MIN_BUFFER_SIZE) {
+	if (crtd->buffer_size < SOF_IPC4_COMPR_MIN_BUFFER_SIZE(min_fragment_size)) {
 		dev_err(dev, "%s: Too small buffer size %llu (minimum is %u)\n",
 			__func__, crtd->buffer_size,
-			SOF_IPC4_COMPR_MIN_BUFFER_SIZE);
+			SOF_IPC4_COMPR_MIN_BUFFER_SIZE(min_fragment_size));
 		return -EINVAL;
 	}
 
