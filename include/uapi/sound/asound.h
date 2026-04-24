@@ -421,9 +421,7 @@ struct snd_pcm_hw_params {
 	unsigned int rate_den;		/* R: rate denominator */
 	snd_pcm_uframes_t fifo_size;	/* R: chip FIFO size in frames */
 	unsigned char sync[16];		/* R: synchronization ID (perfect sync - one clock source) */
-	snd_pcm_uframes_t init_chunk;		/* R: initial DMA burst size in frames */
-	snd_pcm_uframes_t step_chunk;		/* R: step DMA burst size in frames */
-	unsigned char reserved[48 - 2 * sizeof(snd_pcm_uframes_t)];	/* reserved for future */
+	unsigned char reserved[48];	/* reserved for future */
 };
 
 enum {
