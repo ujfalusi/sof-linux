@@ -1526,7 +1526,10 @@ static int mixer_ctl_feature_put(struct snd_kcontrol *kcontrol,
 				return -EINVAL;
 			val = get_abs_value(cval, val);
 			if (oval != val) {
-				snd_usb_set_cur_mix_value(cval, c + 1, cnt, val);
+				err = snd_usb_set_cur_mix_value(cval, c + 1,
+								cnt, val);
+				if (err < 0)
+					return filter_error(cval, err);
 				changed = 1;
 			}
 			cnt++;
@@ -1541,7 +1544,9 @@ static int mixer_ctl_feature_put(struct snd_kcontrol *kcontrol,
 			return -EINVAL;
 		val = get_abs_value(cval, val);
 		if (val != oval) {
-			snd_usb_set_cur_mix_value(cval, 0, 0, val);
+			err = snd_usb_set_cur_mix_value(cval, 0, 0, val);
+			if (err < 0)
+				return filter_error(cval, err);
 			changed = 1;
 		}
 	}
@@ -2466,7 +2471,9 @@ static int mixer_ctl_procunit_put(struct snd_kcontrol *kcontrol,
 		return -EINVAL;
 	val = get_abs_value(cval, val);
 	if (val != oval) {
-		set_cur_ctl_value(cval, cval->control << 8, val);
+		err = set_cur_ctl_value(cval, cval->control << 8, val);
+		if (err < 0)
+			return filter_error(cval, err);
 		return 1;
 	}
 	return 0;
@@ -2664,6 +2671,16 @@ static int build_audio_procunit(struct mixer_build *state, int unitid,
 
 		/* get min/max values */
 		switch (type) {
+		case USB_XU_CLOCK_RATE:
+			/*
+			 * E-Mu USB 0404/0202/TrackerPre/0204
+			 * samplerate control quirk
+			 */
+			cval->min = 0;
+			cval->max = 5;
+			cval->res = 1;
+			cval->initialized = 1;
+			break;
 		case UAC_PROCESS_UP_DOWNMIX: {
 			bool mode_sel = false;
 
@@ -2687,31 +2704,17 @@ static int build_audio_procunit(struct mixer_build *state, int unitid,
 				cval->max = control_spec[0];
 				cval->res = 1;
 				cval->initialized = 1;
-				err = 0;
 				break;
 			}
 
-			err = get_min_max(cval, valinfo->min_value);
-			break;
+			fallthrough;
 		}
-		case USB_XU_CLOCK_RATE:
-			/*
-			 * E-Mu USB 0404/0202/TrackerPre/0204
-			 * samplerate control quirk
-			 */
-			cval->min = 0;
-			cval->max = 5;
-			cval->res = 1;
-			cval->initialized = 1;
-			err = 0;
-			break;
 		default:
 			err = get_min_max(cval, valinfo->min_value);
-			break;
-		}
-		if (err < 0 && err != -EAGAIN) {
-			usb_mixer_elem_info_free(cval);
-			return err;
+			if (err < 0 && err != -EAGAIN) {
+				usb_mixer_elem_info_free(cval);
+				return err;
+			}
 		}
 
 		err = get_cur_ctl_value(cval, cval->control << 8, &val);
@@ -2836,7 +2839,9 @@ static int mixer_ctl_selector_put(struct snd_kcontrol *kcontrol,
 		return -EINVAL;
 	val = get_abs_value(cval, val);
 	if (val != oval) {
-		set_cur_ctl_value(cval, cval->control << 8, val);
+		err = set_cur_ctl_value(cval, cval->control << 8, val);
+		if (err < 0)
+			return filter_error(cval, err);
 		return 1;
 	}
 	return 0;
