@@ -28,7 +28,7 @@ MODULE_PARM_DESC(disable_function_topology, "Disable function topology loading")
 static char *feature_topologies[MAX_FEATURE_TPLG_COUNT];
 static int feature_tplg_cnt;
 module_param_array(feature_topologies, charp, &feature_tplg_cnt, 0444);
-MODULE_PARM_DESC(index, "Topology list for virtual loop DAI link");
+MODULE_PARM_DESC(feature_topologies, "Topology list for virtual loop DAI link");
 
 #define COMP_ID_UNASSIGNED		0xffffffff
 /*
