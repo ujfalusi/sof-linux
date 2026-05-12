@@ -449,6 +449,14 @@ static int sof_ipc3_bytes_ext_put(struct snd_sof_control *scontrol,
 		goto err_restore;
 	}
 
+	/* Verify user provided enough data for what the ABI header claims */
+	if (cdata->data->size > header.length - sizeof(struct sof_abi_hdr)) {
+		dev_err_ratelimited(scomp->dev, "ABI data size %u exceeds TLV length %u\n",
+				    cdata->data->size,
+				    header.length - (unsigned int)sizeof(struct sof_abi_hdr));
+		goto err_restore;
+	}
+
 	/* notify DSP of byte control updates */
 	if (pm_runtime_active(scomp->dev)) {
 		/* Actually send the data to the DSP; this is an opportunity to validate the data */
