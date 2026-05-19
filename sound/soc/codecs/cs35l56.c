@@ -627,6 +627,11 @@ static int cs35l56_sdw_dai_hw_params(struct snd_pcm_substream *substream,
 		sconfig.ch_count = hweight32(pconfig.ch_mask);
 	}
 
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+		cs35l56->rx_mask = pconfig.ch_mask;
+	else
+		cs35l56->tx_mask = pconfig.ch_mask;
+
 	ret = sdw_stream_add_slave(cs35l56->sdw_peripheral, &sconfig, &pconfig,
 				   1, sdw_stream);
 	if (ret) {

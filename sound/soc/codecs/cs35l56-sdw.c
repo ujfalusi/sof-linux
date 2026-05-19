@@ -35,6 +35,50 @@
 
 #define CS35L56_LATE_READ_POLL_US	10
 #define CS35L56_LATE_READ_TIMEOUT_US	1000
+#define CS35L56_SDW_CH_PREP_TIMEOUT_US	10000
+
+static int cs35l56_sdw_recover_playback_port(struct cs35l56_private *cs35l56)
+{
+	struct sdw_slave *peripheral = cs35l56->sdw_peripheral;
+	unsigned int ch_mask = cs35l56->rx_mask;
+	int ret;
+	int val;
+
+	if (!ch_mask) {
+		dev_warn(cs35l56->base.dev,
+			 "[flamingo] no playback ch_mask available for SDW port recovery\n");
+		return 0;
+	}
+
+	ret = sdw_write_no_pm(peripheral,
+			      SDW_DPN_PREPARECTRL(CS35L56_SDW1_PLAYBACK_PORT),
+			      ch_mask);
+	if (ret < 0)
+		return ret;
+
+	ret = read_poll_timeout(sdw_read_no_pm, val,
+				(val < 0) || ((val & ch_mask) == 0),
+				1000, CS35L56_SDW_CH_PREP_TIMEOUT_US,
+				false, peripheral,
+				SDW_DPN_PREPARESTATUS(CS35L56_SDW1_PLAYBACK_PORT));
+	if (ret < 0)
+		return ret;
+
+	if (val < 0)
+		return val;
+
+	ret = sdw_write_no_pm(peripheral,
+			      SDW_DPN_CHANNELEN_B0(CS35L56_SDW1_PLAYBACK_PORT),
+			      ch_mask);
+	if (ret < 0)
+		return ret;
+
+	ret = sdw_write_no_pm(peripheral,
+			      SDW_DPN_CHANNELEN_B1(CS35L56_SDW1_PLAYBACK_PORT),
+			      ch_mask);
+
+	return ret;
+}
 
 static int cs35l56_sdw_poll_mem_status(struct sdw_slave *peripheral,
 				       unsigned int mask,
@@ -380,10 +424,89 @@ static int __maybe_unused cs35l56_sdw_clk_stop(struct sdw_slave *peripheral,
 	}
 }
 
+static int cs35l56_sdw_reattach_recover(struct sdw_slave *peripheral,
+					bool was_streaming)
+{
+	struct cs35l56_private *cs35l56 = dev_get_drvdata(&peripheral->dev);
+	unsigned int val;
+	int ret;
+
+	if (!was_streaming || !cs35l56->base.init_done)
+		return 0;
+
+	dev_dbg(cs35l56->base.dev,
+		"[flamingo] cs35l56 reattach recovery begin (streaming=%u)\n",
+		was_streaming);
+
+	ret = pm_runtime_resume_and_get(cs35l56->base.dev);
+	if (ret < 0) {
+		dev_warn(cs35l56->base.dev,
+			 "[flamingo] pm_runtime_resume_and_get failed: %d\n", ret);
+		return ret;
+	}
+
+	regcache_mark_dirty(cs35l56->base.regmap);
+	ret = regcache_sync(cs35l56->base.regmap);
+	if (ret) {
+		dev_warn(cs35l56->base.dev,
+			 "[flamingo] regcache_sync failed: %d\n", ret);
+		goto out;
+	} else {
+		dev_dbg(cs35l56->base.dev,
+			"[flamingo] regcache_sync complete\n");
+	}
+
+	ret = cs35l56_mbox_send(&cs35l56->base, CS35L56_MBOX_CMD_AUDIO_REINIT);
+	if (ret) {
+		dev_warn(cs35l56->base.dev,
+			 "[flamingo] AUDIO_REINIT failed: %d\n", ret);
+		goto out;
+	}
+
+	/*
+	 * Replaying PLAY mirrors the normal DAPM PRE_PMU/POST_PMU sequence,
+	 * which does not automatically rerun on a transient SDW detach/reattach.
+	 */
+	ret = regmap_write(cs35l56->base.regmap, CS35L56_DSP_VIRTUAL1_MBOX_1,
+			   CS35L56_MBOX_CMD_AUDIO_PLAY);
+	if (ret) {
+		dev_warn(cs35l56->base.dev,
+			 "[flamingo] AUDIO_PLAY write failed: %d\n", ret);
+		goto out;
+	}
+
+	ret = regmap_read_poll_timeout(cs35l56->base.regmap,
+				       cs35l56->base.fw_reg->transducer_actual_ps,
+				       val, (val == CS35L56_PS0),
+				       CS35L56_PS0_POLL_US,
+				       CS35L56_PS0_TIMEOUT_US);
+	if (ret)
+		dev_warn(cs35l56->base.dev,
+			 "[flamingo] PS0 wait failed after AUDIO_PLAY: %d\n", ret);
+	else
+		dev_dbg(cs35l56->base.dev,
+			"[flamingo] AUDIO_PLAY/PS0 complete\n");
+
+	ret = cs35l56_sdw_recover_playback_port(cs35l56);
+	if (ret)
+		dev_warn(cs35l56->base.dev,
+			 "[flamingo] playback port re-enable failed: %d\n", ret);
+	else
+		dev_dbg(cs35l56->base.dev,
+			"[flamingo] playback port recovered\n");
+
+	out:
+	pm_runtime_mark_last_busy(cs35l56->base.dev);
+	pm_runtime_put_autosuspend(cs35l56->base.dev);
+
+	return ret;
+}
+
 static const struct sdw_slave_ops cs35l56_sdw_ops = {
 	.read_prop = cs35l56_sdw_read_prop,
 	.interrupt_callback = cs35l56_sdw_interrupt,
 	.update_status = cs35l56_sdw_update_status,
+	.reattach_recover = cs35l56_sdw_reattach_recover,
 	.clk_stop = cs35l56_sdw_clk_stop,
 };
 

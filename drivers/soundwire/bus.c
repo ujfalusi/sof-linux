@@ -1910,6 +1910,52 @@ static int sdw_update_slave_status(struct sdw_slave *slave,
 	return ret;
 }
 
+static int sdw_reattach_recover_slave(struct sdw_slave *slave, bool was_streaming)
+{
+	int ret = 0;
+
+	mutex_lock(&slave->sdw_dev_lock);
+
+	if (slave->probed) {
+		struct device *dev = &slave->dev;
+		struct sdw_driver *drv = drv_to_sdw_driver(dev->driver);
+
+		if (drv->ops && drv->ops->reattach_recover)
+			ret = drv->ops->reattach_recover(slave, was_streaming);
+		else
+			dev_dbg(dev, "[flamingo] no reattach_recover callback (streaming=%u)\n",
+				was_streaming);
+	}
+
+	mutex_unlock(&slave->sdw_dev_lock);
+
+	return ret;
+}
+
+static bool sdw_slave_is_stream_enabled(struct sdw_bus *bus,
+					struct sdw_slave *slave)
+{
+	struct sdw_master_runtime *m_rt;
+
+	mutex_lock(&bus->bus_lock);
+	list_for_each_entry(m_rt, &bus->m_rt_list, bus_node) {
+		struct sdw_slave_runtime *s_rt;
+
+		if (!m_rt->stream || m_rt->stream->state != SDW_STREAM_ENABLED)
+			continue;
+
+		list_for_each_entry(s_rt, &m_rt->slave_rt_list, m_rt_node) {
+			if (s_rt->slave == slave) {
+				mutex_unlock(&bus->bus_lock);
+				return true;
+			}
+		}
+	}
+	mutex_unlock(&bus->bus_lock);
+
+	return false;
+}
+
 /**
  * sdw_handle_slave_status() - Handle Slave status
  * @bus: SDW bus instance
@@ -1938,6 +1984,12 @@ int sdw_handle_slave_status(struct sdw_bus *bus,
 
 		if (status[i] == SDW_SLAVE_UNATTACHED &&
 		    slave->status != SDW_SLAVE_UNATTACHED) {
+			if (sdw_slave_is_stream_enabled(bus, slave)) {
+				slave->context_lost_while_active = true;
+				dev_dbg(&slave->dev,
+					"[flamingo] detached while stream enabled\n");
+			}
+
 			dev_dbg(&slave->dev, "Slave %d state check1: UNATTACHED, status was %d\n",
 			i, slave->status);
 			sdw_modify_slave_status(slave, SDW_SLAVE_UNATTACHED);
@@ -2039,11 +2091,28 @@ int sdw_handle_slave_status(struct sdw_bus *bus,
 			dev_err(&slave->dev,
 				"Update Slave status failed:%d\n", ret);
 		if (attached_initializing) {
+			bool recover_needed = slave->context_lost_while_active;
+
 			dev_dbg(&slave->dev,
 				"signaling initialization completion for Slave %d\n",
 				slave->dev_num);
 
 			complete_all(&slave->initialization_complete);
+
+			if (recover_needed) {
+				dev_dbg(&slave->dev,
+					"[flamingo] reattached, starting recovery callback\n");
+				ret = sdw_reattach_recover_slave(slave, true);
+				if (ret < 0)
+					dev_warn(&slave->dev,
+						 "[flamingo] reattach recovery failed:%d\n",
+						 ret);
+				else
+					dev_dbg(&slave->dev,
+						"[flamingo] reattach recovery done\n");
+
+				slave->context_lost_while_active = false;
+			}
 
 			/*
 			 * If the manager became pm_runtime active, the peripherals will be

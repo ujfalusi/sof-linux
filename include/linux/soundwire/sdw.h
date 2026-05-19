@@ -615,6 +615,9 @@ struct sdw_bus_params {
  * @interrupt_callback: Device interrupt notification (invoked in thread
  * context)
  * @update_status: Update Slave status
+ * @reattach_recover: Optional callback invoked after an UNATTACHED->ATTACHED
+ * transition and re-initialization if the Slave detached while actively
+ * streaming.
  * @bus_config: Update the bus config for Slave
  * @port_prep: Prepare the port with parameters
  * @get_clk_stop_mode: Get the clock stop mode of the Slave
@@ -626,6 +629,7 @@ struct sdw_slave_ops {
 				  struct sdw_slave_intr_status *status);
 	int (*update_status)(struct sdw_slave *slave,
 			     enum sdw_slave_status status);
+	int (*reattach_recover)(struct sdw_slave *slave, bool was_streaming);
 	int (*bus_config)(struct sdw_slave *slave,
 			  struct sdw_bus_params *params);
 	int (*port_prep)(struct sdw_slave *slave,
@@ -664,6 +668,8 @@ struct sdw_slave_ops {
  * between the Master suspending and the codec resuming, and make sure that
  * when the Master triggered a reset the Slave is properly enumerated and
  * initialized
+ * @context_lost_while_active: true when the Slave became UNATTACHED while in
+ * SDW_STREAM_ENABLED state, used to request stream-time recovery on reattach.
  * @first_interrupt_done: status flag tracking if the interrupt handling
  * for a Slave happens for the first time after enumeration
  * @is_mockup_device: status flag used to squelch errors in the command/control
@@ -692,6 +698,7 @@ struct sdw_slave {
 	struct completion enumeration_complete;
 	struct completion initialization_complete;
 	u32 unattach_request;
+	bool context_lost_while_active;
 	bool first_interrupt_done;
 	bool is_mockup_device;
 	struct mutex sdw_dev_lock; /* protect callbacks/remove races */
