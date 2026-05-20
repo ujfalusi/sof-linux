@@ -2614,13 +2614,13 @@ static int scarlett2_usb(
 
 	struct scarlett2_usb_packet *req __free(kfree) = NULL;
 	size_t req_buf_size = struct_size(req, data, req_size);
-	req = kmalloc(req_buf_size, GFP_KERNEL);
+	req = kmalloc_flex(*req, data, req_size);
 	if (!req)
 		return -ENOMEM;
 
 	struct scarlett2_usb_packet *resp __free(kfree) = NULL;
 	size_t resp_buf_size = struct_size(resp, data, resp_size);
-	resp = kmalloc(resp_buf_size, GFP_KERNEL);
+	resp = kmalloc_flex(*resp, data, resp_size);
 	if (!resp)
 		return -ENOMEM;
 
@@ -2830,9 +2830,9 @@ static int scarlett2_usb_set_data_buf(
 		u8 data[];
 	} __packed *req;
 	int err;
-	int buf_size = struct_size(req, data, bytes);
+	size_t buf_size = struct_size(req, data, bytes);
 
-	req = kmalloc(buf_size, GFP_KERNEL);
+	req = kmalloc_flex(*req, data, bytes);
 	if (!req)
 		return -ENOMEM;
 
@@ -6941,6 +6941,8 @@ static int scarlett2_add_line_in_ctls(struct usb_mixer_interface *mixer)
 		err = scarlett2_add_new_ctl(
 			mixer, &scarlett2_autogain_status_ctl,
 			i, 1, s, &private->autogain_status_ctls[i]);
+		if (err < 0)
+			return err;
 	}
 
 	/* Add autogain target controls */
@@ -9644,7 +9646,7 @@ static long scarlett2_hwdep_write(struct snd_hwdep *hw,
 
 	/* Create and send the request */
 	len = struct_size(req, data, count);
-	req = kzalloc(len, GFP_KERNEL);
+	req = kzalloc_flex(*req, data, count);
 	if (!req)
 		return -ENOMEM;
 
