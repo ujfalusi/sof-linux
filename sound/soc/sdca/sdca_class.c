@@ -217,7 +217,7 @@ static int class_sdw_probe(struct sdw_slave *sdw, const struct sdw_device_id *id
 
 	regcache_cache_only(drv->dev_regmap, true);
 
-	pm_runtime_set_autosuspend_delay(dev, 250);
+	pm_runtime_set_autosuspend_delay(dev, 500);
 	pm_runtime_use_autosuspend(dev);
 	pm_runtime_set_active(dev);
 	pm_runtime_get_noresume(dev);

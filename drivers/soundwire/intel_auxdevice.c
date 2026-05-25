@@ -23,7 +23,7 @@
 #include "intel.h"
 #include "intel_auxdevice.h"
 
-#define INTEL_MASTER_SUSPEND_DELAY_MS	3000
+#define INTEL_MASTER_SUSPEND_DELAY_MS	7000
 
 /*
  * debug/config flags for the Intel SoundWire Master.
