@@ -73,7 +73,6 @@ static u64 sof_ipc4_compr_calc_max_buffer_size(struct snd_sof_pcm_stream *sps)
 static int sof_ipc4_compr_open(struct snd_soc_component *component,
 			       struct snd_compr_stream *cstream)
 {
-	struct snd_sof_dev *sdev = snd_sof_component_get_sdev(component);
 	struct snd_soc_pcm_runtime *rtd = cstream->private_data;
 	struct snd_sof_pcm *spcm;
 	int dir, ret;
@@ -89,7 +88,7 @@ static int sof_ipc4_compr_open(struct snd_soc_component *component,
 
 	spcm_dbg(spcm, dir, "Entry: open\n");
 
-	ret = snd_sof_compr_platform_open(sdev, cstream);
+	ret = snd_sof_compr_platform_open(component, cstream);
 	if (ret < 0) {
 		spcm_err(spcm, dir, "platform compress open failed %d\n", ret);
 		return ret;
@@ -116,13 +115,13 @@ static int sof_ipc4_compr_stream_free(struct snd_sof_dev *sdev,
 
 	if (spcm->prepared[dir]) {
 		if (spcm->pending_stop[dir])
-			pcm_ops->trigger(sdev->component, NULL, spcm,
+			pcm_ops->trigger(spcm->scomp, NULL, spcm,
 					 SNDRV_PCM_TRIGGER_STOP, dir);
 
-		snd_sof_compr_platform_trigger(sdev, cstream,
+		snd_sof_compr_platform_trigger(spcm->scomp, cstream,
 					       SNDRV_PCM_TRIGGER_STOP);
 
-		err = pcm_ops->hw_free(sdev->component, NULL, spcm, dir);
+		err = pcm_ops->hw_free(spcm->scomp, NULL, spcm, dir);
 		if (err < 0)
 			spcm_err(spcm, dir, "pcm_ops->hw_free failed %d\n", err);
 	}
@@ -133,7 +132,7 @@ static int sof_ipc4_compr_stream_free(struct snd_sof_dev *sdev,
 	spcm->stream[dir].cstream = NULL;
 
 	/* reset the DMA */
-	ret = snd_sof_compr_platform_hw_free(sdev, cstream);
+	ret = snd_sof_compr_platform_hw_free(spcm->scomp, cstream);
 	if (ret < 0) {
 		spcm_err(spcm, dir, "platform hw free failed %d\n", ret);
 		if (!err)
@@ -173,7 +172,7 @@ static int sof_ipc4_compr_free(struct snd_soc_component *component,
 
 	snd_compr_free_pages(cstream);
 
-	err = snd_sof_compr_platform_close(sdev, cstream);
+	err = snd_sof_compr_platform_close(component, cstream);
 	if (err < 0) {
 		spcm_err(spcm, cstream->direction,
 			 "platform compress close failed %d\n", err);
@@ -453,7 +452,7 @@ static int sof_ipc4_compr_set_params(struct snd_soc_component *component,
 	interval->max = cstream->runtime->buffer_size;
 
 	platform_params = &spcm->platform_params[dir];
-	ret = snd_sof_compr_platform_hw_params(sdev, cstream, compr_params,
+	ret = snd_sof_compr_platform_hw_params(component, cstream, compr_params,
 					       platform_params);
 	if (ret < 0) {
 		spcm_err(spcm, dir, "platform compress hw params failed\n");
@@ -621,7 +620,7 @@ static int sof_ipc4_compr_trigger(struct snd_soc_component *component,
 	}
 
 	if (!ret && trigger_platform) {
-		ret = snd_sof_compr_platform_trigger(sdev, cstream, cmd);
+		ret = snd_sof_compr_platform_trigger(component, cstream, cmd);
 		if (ret < 0)
 			spcm_err(spcm, dir,
 				 "platform compress trigger start failed %d\n",
@@ -726,7 +725,7 @@ static int sof_ipc4_compr_pointer(struct snd_soc_component *component,
 
 	params = &spcm->params[cstream->direction];
 
-	ret = snd_sof_compr_platform_pointer(sdev, cstream, tstamp);
+	ret = snd_sof_compr_platform_pointer(component, cstream, tstamp);
 	if (ret < 0) {
 		spcm_err(spcm, cstream->direction,
 			 "platform compress pointer failed %d\n", ret);
@@ -812,7 +811,7 @@ void sof_ipc4_compr_drain_done(struct snd_sof_dev *sdev, void *ipc_message)
 	}
 
 	/* Look up the spcm of the host copier */
-	spcm = snd_sof_find_spcm_comp(sdev->component, host_swidget->comp_id, &dir);
+	spcm = snd_sof_find_spcm_comp_by_sdev(sdev, host_swidget->comp_id, &dir);
 	if (!spcm) {
 		dev_err(sdev->dev, "%s: Stream cannot be found for %s\n", __func__,
 			host_swidget->widget->name);
