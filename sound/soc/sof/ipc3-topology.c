@@ -519,7 +519,7 @@ static int sof_ipc3_widget_setup_comp_mixer(struct snd_sof_widget *swidget)
 static int sof_ipc3_widget_setup_comp_pipeline(struct snd_sof_widget *swidget)
 {
 	struct snd_soc_component *scomp = swidget->scomp;
-	struct snd_sof_dev *sdev = snd_soc_component_get_drvdata(scomp);
+	struct snd_sof_dev *sdev = snd_sof_component_get_sdev(scomp);
 	struct snd_sof_pipeline *spipe = swidget->spipe;
 	struct sof_ipc_pipe_new *pipeline;
 	struct snd_sof_widget *comp_swidget;
@@ -752,7 +752,7 @@ static int sof_ipc3_widget_setup_comp_mux(struct snd_sof_widget *swidget)
 static int sof_ipc3_widget_setup_comp_pga(struct snd_sof_widget *swidget)
 {
 	struct snd_soc_component *scomp = swidget->scomp;
-	struct snd_sof_dev *sdev = snd_soc_component_get_drvdata(scomp);
+	struct snd_sof_dev *sdev = snd_sof_component_get_sdev(scomp);
 	struct sof_ipc_comp_volume *volume;
 	struct snd_sof_control *scontrol;
 	size_t ipc_size = sizeof(*volume);
@@ -1395,7 +1395,7 @@ static int sof_link_afe_load(struct snd_soc_component *scomp, struct snd_sof_dai
 static int sof_link_ssp_load(struct snd_soc_component *scomp, struct snd_sof_dai_link *slink,
 			     struct sof_ipc_dai_config *config, struct snd_sof_dai *dai)
 {
-	struct snd_sof_dev *sdev = snd_soc_component_get_drvdata(scomp);
+	struct snd_sof_dev *sdev = snd_sof_component_get_sdev(scomp);
 	struct snd_soc_tplg_hw_config *hw_config = slink->hw_configs;
 	struct sof_dai_private_data *private = dai->private;
 	u32 size = sizeof(*config);
@@ -1468,7 +1468,7 @@ static int sof_link_ssp_load(struct snd_soc_component *scomp, struct snd_sof_dai
 static int sof_link_dmic_load(struct snd_soc_component *scomp, struct snd_sof_dai_link *slink,
 			      struct sof_ipc_dai_config *config, struct snd_sof_dai *dai)
 {
-	struct snd_sof_dev *sdev = snd_soc_component_get_drvdata(scomp);
+	struct snd_sof_dev *sdev = snd_sof_component_get_sdev(scomp);
 	struct sof_dai_private_data *private = dai->private;
 	struct sof_ipc_fw_ready *ready = &sdev->fw_ready;
 	struct sof_ipc_fw_version *v = &ready->version;
@@ -1566,7 +1566,7 @@ static int sof_link_alh_load(struct snd_soc_component *scomp, struct snd_sof_dai
 static int sof_ipc3_widget_setup_comp_dai(struct snd_sof_widget *swidget)
 {
 	struct snd_soc_component *scomp = swidget->scomp;
-	struct snd_sof_dev *sdev = snd_soc_component_get_drvdata(scomp);
+	struct snd_sof_dev *sdev = snd_sof_component_get_sdev(scomp);
 	struct snd_sof_dai *dai = swidget->private;
 	struct sof_dai_private_data *private;
 	struct sof_ipc_comp_dai *comp_dai;
@@ -1911,7 +1911,7 @@ static int sof_ipc3_control_free(struct snd_sof_dev *sdev, struct snd_sof_contro
 static int sof_ipc3_keyword_detect_pcm_params(struct snd_sof_widget *swidget, int dir)
 {
 	struct snd_soc_component *scomp = swidget->scomp;
-	struct snd_sof_dev *sdev = snd_soc_component_get_drvdata(scomp);
+	struct snd_sof_dev *sdev = snd_sof_component_get_sdev(scomp);
 	struct snd_pcm_hw_params *params;
 	struct sof_ipc_pcm_params pcm;
 	struct snd_sof_pcm *spcm;
@@ -1967,7 +1967,7 @@ static int sof_ipc3_keyword_detect_pcm_params(struct snd_sof_widget *swidget, in
 static int sof_ipc3_keyword_detect_trigger(struct snd_sof_widget *swidget, int cmd)
 {
 	struct snd_soc_component *scomp = swidget->scomp;
-	struct snd_sof_dev *sdev = snd_soc_component_get_drvdata(scomp);
+	struct snd_sof_dev *sdev = snd_sof_component_get_sdev(scomp);
 	struct sof_ipc_stream stream;
 	int ret;
 
