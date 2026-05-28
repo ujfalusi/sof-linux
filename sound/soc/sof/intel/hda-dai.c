@@ -282,7 +282,8 @@ static int __maybe_unused hda_dai_hw_params(struct snd_pcm_substream *substream,
 	return hda_dai_hw_params_data(substream, params, dai, &data, flags);
 }
 
-static bool hda_dai_has_wov_fe(struct snd_sof_dev *sdev, struct snd_pcm_substream *substream)
+static bool hda_dai_has_wov_fe(struct snd_soc_dai *dai,
+			       struct snd_pcm_substream *substream)
 {
 	struct snd_soc_pcm_runtime *rtd = snd_soc_substream_to_rtd(substream);
 	struct snd_soc_dpcm *dpcm;
@@ -297,7 +298,7 @@ static bool hda_dai_has_wov_fe(struct snd_sof_dev *sdev, struct snd_pcm_substrea
 	 * still be connected to the BE.
 	 */
 	for_each_dpcm_fe(rtd, SNDRV_PCM_STREAM_CAPTURE, dpcm) {
-		spcm = snd_sof_find_spcm_dai(sdev->component, dpcm->fe);
+		spcm = snd_sof_find_spcm_dai(dai->component, dpcm->fe);
 		if (spcm && spcm->stream[SNDRV_PCM_STREAM_CAPTURE].d0i3_compatible &&
 		    spcm->stream[SNDRV_PCM_STREAM_CAPTURE].dsp_max_burst_size_in_ms <= 1 &&
 		    (dpcm->fe->dpcm[SNDRV_PCM_STREAM_CAPTURE].state == SND_SOC_DPCM_STATE_START ||
@@ -348,7 +349,7 @@ static int __maybe_unused hda_dai_trigger(struct snd_pcm_substream *substream, i
 	 */
 	if (cmd == SNDRV_PCM_TRIGGER_SUSPEND &&
 	    sdev->system_suspend_target == SOF_SUSPEND_S0IX &&
-	    hda_dai_has_wov_fe(sdev, substream)) {
+	    hda_dai_has_wov_fe(dai, substream)) {
 		hda_stream->suspend_ignored = true;
 		return 0;
 	}
