@@ -1067,7 +1067,7 @@ static void cdns_update_slave_status_work(struct work_struct *work)
 	/* combine the two status */
 	slave_intstat = ((u64)slave1 << 32) | slave0;
 
-	dev_dbg(cdns->dev, "Slave status change: 0x%llx\n", slave_intstat);
+	dev_dbg_ratelimited(cdns->dev, "Slave status change: 0x%llx\n", slave_intstat);
 
 update_status:
 	cdns_update_slave_status(cdns, slave_intstat);

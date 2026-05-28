@@ -15,7 +15,7 @@
  * the master device will only suspend when all its children are no
  * longer active.
  */
-#define SDW_MASTER_SUSPEND_DELAY_MS 5000
+#define SDW_MASTER_SUSPEND_DELAY_MS 3000
 
 /*
  * The sysfs for properties reflects the MIPI description as given
