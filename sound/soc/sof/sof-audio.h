@@ -59,6 +59,10 @@
 	list_for_each_entry(instance, &(sdev)->audio_instance_list, list)	\
 		list_for_each_entry(spcm, &(instance)->pcm_list, list)
 
+#define for_each_swidget_in_instances(swidget, sdev, instance)			\
+	list_for_each_entry(instance, &(sdev)->audio_instance_list, list)	\
+		list_for_each_entry(swidget, &(instance)->widget_list, list)
+
 #define SOF_DAI_PARAM_INTEL_SSP_MCLK		0
 #define SOF_DAI_PARAM_INTEL_SSP_BCLK		1
 #define SOF_DAI_PARAM_INTEL_SSP_TDM_SLOTS	2
