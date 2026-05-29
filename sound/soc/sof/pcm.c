@@ -103,9 +103,10 @@ sof_pcm_setup_connected_widgets(struct snd_sof_dev *sdev, struct snd_soc_pcm_run
 struct snd_sof_widget *snd_sof_find_swidget_by_comp_id(struct snd_sof_dev *sdev,
 						       int comp_id)
 {
+	struct snd_sof_audio_instance *instance;
 	struct snd_sof_widget *swidget;
 
-	list_for_each_entry(swidget, &sdev->widget_list, list) {
+	for_each_swidget_in_instances(swidget, sdev, instance) {
 		if (comp_id == swidget->comp_id)
 			return swidget;
 	}

@@ -17,6 +17,7 @@ static int sof_ipc4_set_get_kcontrol_data(struct snd_sof_control *scontrol,
 					  bool set, bool lock)
 {
 	struct snd_soc_component *scomp = scontrol->scomp;
+	struct snd_sof_audio_instance *instance = snd_sof_component_get_audio_instance(scomp);
 	struct snd_sof_dev *sdev = snd_sof_component_get_sdev(scomp);
 	const struct sof_ipc_ops *iops = sdev->ipc->ops;
 	struct snd_sof_widget *swidget;
@@ -24,7 +25,7 @@ static int sof_ipc4_set_get_kcontrol_data(struct snd_sof_control *scontrol,
 	int ret = 0;
 
 	/* find widget associated with the control */
-	list_for_each_entry(swidget, &sdev->widget_list, list) {
+	list_for_each_entry(swidget, &instance->widget_list, list) {
 		if (swidget->comp_id == scontrol->comp_id) {
 			widget_found = true;
 			break;
@@ -143,6 +144,7 @@ static bool sof_ipc4_volume_put(struct snd_sof_control *scontrol,
 {
 	struct sof_ipc4_control_data *cdata = scontrol->ipc_control_data;
 	struct snd_soc_component *scomp = scontrol->scomp;
+	struct snd_sof_audio_instance *instance = snd_sof_component_get_audio_instance(scomp);
 	struct snd_sof_dev *sdev = snd_sof_component_get_sdev(scomp);
 	unsigned int channels = scontrol->num_channels;
 	struct snd_sof_widget *swidget;
@@ -165,7 +167,7 @@ static bool sof_ipc4_volume_put(struct snd_sof_control *scontrol,
 		return change;
 
 	/* find widget associated with the control */
-	list_for_each_entry(swidget, &sdev->widget_list, list) {
+	list_for_each_entry(swidget, &instance->widget_list, list) {
 		if (swidget->comp_id == scontrol->comp_id) {
 			widget_found = true;
 			break;
@@ -383,6 +385,7 @@ static bool sof_ipc4_switch_put(struct snd_sof_control *scontrol,
 {
 	struct sof_ipc4_control_data *cdata = scontrol->ipc_control_data;
 	struct snd_soc_component *scomp = scontrol->scomp;
+	struct snd_sof_audio_instance *instance = snd_sof_component_get_audio_instance(scomp);
 	struct snd_sof_dev *sdev = snd_sof_component_get_sdev(scomp);
 	struct snd_sof_widget *swidget;
 	bool widget_found = false;
@@ -403,7 +406,7 @@ static bool sof_ipc4_switch_put(struct snd_sof_control *scontrol,
 		return change;
 
 	/* find widget associated with the control */
-	list_for_each_entry(swidget, &sdev->widget_list, list) {
+	list_for_each_entry(swidget, &instance->widget_list, list) {
 		if (swidget->comp_id == scontrol->comp_id) {
 			widget_found = true;
 			break;
@@ -442,6 +445,7 @@ static bool sof_ipc4_enum_put(struct snd_sof_control *scontrol,
 {
 	struct sof_ipc4_control_data *cdata = scontrol->ipc_control_data;
 	struct snd_soc_component *scomp = scontrol->scomp;
+	struct snd_sof_audio_instance *instance = snd_sof_component_get_audio_instance(scomp);
 	struct snd_sof_dev *sdev = snd_sof_component_get_sdev(scomp);
 	struct snd_sof_widget *swidget;
 	bool widget_found = false;
@@ -462,7 +466,7 @@ static bool sof_ipc4_enum_put(struct snd_sof_control *scontrol,
 		return change;
 
 	/* find widget associated with the control */
-	list_for_each_entry(swidget, &sdev->widget_list, list) {
+	list_for_each_entry(swidget, &instance->widget_list, list) {
 		if (swidget->comp_id == scontrol->comp_id) {
 			widget_found = true;
 			break;
