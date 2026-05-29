@@ -644,7 +644,7 @@ static int ipc4_ssp_dai_config_pcm_params_match(struct snd_soc_component *compon
 	bool partial_match;
 	int i;
 
-	list_for_each_entry(slink, &sdev->dai_link_list, list) {
+	list_for_each_entry(slink, &instance->dai_link_list, list) {
 		if (!strcmp(slink->link->name, link_name)) {
 			dai_link_found = true;
 			break;
