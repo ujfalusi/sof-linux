@@ -28,48 +28,6 @@ static void snd_sof_pcm_period_elapsed_work(struct work_struct *work)
 	struct snd_sof_pcm_stream *sps =
 		container_of(work, struct snd_sof_pcm_stream,
 			     period_elapsed_work);
-	ktime_t current_time = ktime_get();
-	s64 delay_ns;
-	s64 delay_ms;
-
-	/* Calculate delay between work scheduling and execution */
-	delay_ns = ktime_sub(current_time, sps->period_elapsed_work_scheduled_time);
-	delay_ms = delay_ns / 1000000; /* Convert to milliseconds */
-
-	/* Log if delay exceeds 10ms */
-	if (delay_ms > 10) {
-		pr_info("[dolphin] snd_sof_pcm_period_elapsed_work delay: %lld ms\n", delay_ms);
-	}
-
-	/* Update statistics */
-	sps->period_elapsed_work_stat_count++;
-	sps->period_elapsed_work_total_delay_ms += delay_ms;
-
-	if (sps->period_elapsed_work_stat_count == 1) {
-		/* First call - initialize min and max */
-		sps->period_elapsed_work_min_delay_ms = delay_ms;
-		sps->period_elapsed_work_max_delay_ms = delay_ms;
-	} else {
-		/* Update min and max */
-		if (delay_ms < sps->period_elapsed_work_min_delay_ms)
-			sps->period_elapsed_work_min_delay_ms = delay_ms;
-		if (delay_ms > sps->period_elapsed_work_max_delay_ms)
-			sps->period_elapsed_work_max_delay_ms = delay_ms;
-	}
-
-	/* Print statistics every 100 calls */
-	if (sps->period_elapsed_work_stat_count % 100 == 0) {
-		s64 avg_delay = sps->period_elapsed_work_total_delay_ms / 100;
-		pr_info("[dolphin] stats (100 calls): min=%lld ms, max=%lld ms, avg=%lld ms\n",
-			sps->period_elapsed_work_min_delay_ms,
-			sps->period_elapsed_work_max_delay_ms,
-			avg_delay);
-
-		/* Reset statistics for next batch */
-		sps->period_elapsed_work_total_delay_ms = 0;
-		sps->period_elapsed_work_min_delay_ms = delay_ms;
-		sps->period_elapsed_work_max_delay_ms = delay_ms;
-	}
 
 	snd_pcm_period_elapsed(sps->substream);
 }
@@ -104,7 +62,6 @@ void snd_sof_pcm_period_elapsed(struct snd_pcm_substream *substream)
 	 * To avoid sending IPC before the previous IPC is handled, we
 	 * schedule delayed work here to call the snd_pcm_period_elapsed().
 	 */
-	spcm->stream[substream->stream].period_elapsed_work_scheduled_time = ktime_get();
 	queue_work(system_highpri_wq, &spcm->stream[substream->stream].period_elapsed_work);
 }
 EXPORT_SYMBOL(snd_sof_pcm_period_elapsed);

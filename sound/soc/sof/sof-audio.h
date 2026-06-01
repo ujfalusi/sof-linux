@@ -339,11 +339,6 @@ struct snd_sof_pcm_stream {
 	struct snd_pcm_substream *substream;
 	struct snd_compr_stream *cstream;
 	struct work_struct period_elapsed_work;
-	ktime_t period_elapsed_work_scheduled_time; /* timestamp when work is scheduled for delay measurement */
-	s64 period_elapsed_work_min_delay_ms; /* minimum delay in milliseconds */
-	s64 period_elapsed_work_max_delay_ms; /* maximum delay in milliseconds */
-	s64 period_elapsed_work_total_delay_ms; /* total delay for average calculation */
-	u32 period_elapsed_work_stat_count; /* counter for statistics (print every 100 calls) */
 	struct snd_soc_dapm_widget_list *list; /* list of connected DAPM widgets */
 	bool d0i3_compatible; /* DSP can be in D0I3 when this pcm is opened */
 	bool pause_supported; /* PCM device supports PAUSE operation */
