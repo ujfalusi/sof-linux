@@ -26,6 +26,7 @@ snd_sof_audio_instance_register(struct snd_sof_dev *sdev,
 
 	instance->sdev = sdev;
 	instance->component = component;
+	instance->audio_ops = sdev->audio_ops;
 	INIT_LIST_HEAD(&instance->pipeline_list);
 	INIT_LIST_HEAD(&instance->dai_list);
 	INIT_LIST_HEAD(&instance->dai_link_list);
