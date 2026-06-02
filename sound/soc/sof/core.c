@@ -684,6 +684,7 @@ int snd_sof_device_probe(struct device *dev, struct snd_sof_pdata *plat_data)
 		return ret;
 
 	INIT_LIST_HEAD(&sdev->audio_instance_list);
+	sdev->audio_ops = plat_data->desc->audio_ops;
 	INIT_LIST_HEAD(&sdev->ipc_client_list);
 	INIT_LIST_HEAD(&sdev->ipc_rx_handler_list);
 	INIT_LIST_HEAD(&sdev->fw_state_handler_list);
