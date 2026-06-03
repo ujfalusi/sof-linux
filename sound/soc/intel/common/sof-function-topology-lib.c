@@ -46,6 +46,11 @@ int sof_sdw_get_tplg_files(struct snd_soc_card *card, const struct snd_soc_acpi_
 	int ret;
 	int i;
 
+	if (!mach || !mach->sof_tplg_filename) {
+		dev_err(card->dev, "Missing base topology filename for function topology\n");
+		return -EINVAL;
+	}
+
 	ret = sscanf(mach->sof_tplg_filename, "sof-%3s-*.tplg", platform);
 	if (ret != 1) {
 		dev_err(card->dev, "Invalid platform name %s of tplg %s\n",
@@ -101,10 +106,7 @@ int sof_sdw_get_tplg_files(struct snd_soc_card *card, const struct snd_soc_acpi_
 			dev_dbg(card->dev,
 				"dai_link %s is not supported by separated tplg yet\n",
 				dai_link->name);
-			if (best_effort)
-				continue;
-
-			return 0;
+			continue;
 		}
 		if (tplg_mask & BIT(tplg_dev))
 			continue;
