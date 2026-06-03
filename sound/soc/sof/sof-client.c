@@ -11,6 +11,7 @@
 #include <linux/list.h>
 #include <linux/module.h>
 #include <linux/mutex.h>
+#include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <sound/sof/ipc4/header.h>
 #include "ops.h"
@@ -534,6 +535,14 @@ enum sof_ipc_type sof_client_get_ipc_type(struct sof_client_dev *cdev)
 }
 EXPORT_SYMBOL_NS_GPL(sof_client_get_ipc_type, "SND_SOC_SOF_CLIENT");
 
+const char *sof_client_get_topology_name(struct sof_client_dev *cdev)
+{
+	struct snd_sof_dev *sdev = sof_client_dev_to_sof_dev(cdev);
+
+	return sdev->pdata->tplg_filename;
+}
+EXPORT_SYMBOL_NS_GPL(sof_client_get_topology_name, "SND_SOC_SOF_CLIENT");
+
 int sof_client_boot_dsp(struct sof_client_dev *cdev)
 {
 	return snd_sof_boot_dsp_firmware(sof_client_dev_to_sof_dev(cdev));
@@ -744,8 +753,39 @@ EXPORT_SYMBOL_NS_GPL(sof_client_get_num_cores, "SND_SOC_SOF_CLIENT");
 int sof_client_machine_register(struct sof_client_dev *cdev)
 {
 	struct snd_sof_dev *sdev = sof_client_dev_to_sof_dev(cdev);
+	struct sof_audio_client_pdata *pdata = dev_get_platdata(&cdev->auxdev.dev);
+	struct snd_sof_pdata *spdata = sdev->pdata;
+	struct snd_soc_acpi_mach *mach;
+	struct platform_device *pdev;
 
-	return snd_sof_machine_register(sdev, sdev->pdata);
+	/* Per-client machine: register a dedicated machine device */
+	if (pdata->machine.drv_name) {
+		mach = &pdata->machine;
+		mach->mach_params.platform = dev_name(&cdev->auxdev.dev);
+
+		pdev = platform_device_register_data(sdev->dev,
+						     mach->drv_name,
+						     PLATFORM_DEVID_AUTO,
+						     mach, sizeof(*mach));
+		if (IS_ERR(pdev))
+			return PTR_ERR(pdev);
+
+		pdata->plat_drv.ignore_machine = dev_name(&pdev->dev);
+		cdev->data = pdev;
+
+		return 0;
+	}
+
+	/*
+	 * Legacy: use shared machine from sdev.
+	 * Update the platform name to match the audio component's device so
+	 * that machine drivers can find the SOF platform component.
+	 */
+	mach = (struct snd_soc_acpi_mach *)spdata->machine;
+	if (mach)
+		mach->mach_params.platform = dev_name(&cdev->auxdev.dev);
+
+	return snd_sof_machine_register(sdev, spdata);
 }
 EXPORT_SYMBOL_NS_GPL(sof_client_machine_register, "SND_SOC_SOF_CLIENT");
 
@@ -766,10 +806,8 @@ EXPORT_SYMBOL_NS_GPL(sof_client_machine_unregister, "SND_SOC_SOF_CLIENT");
 void sof_audio_client_init_pdata(struct snd_sof_dev *sdev,
 				 struct sof_audio_client_pdata *pdata)
 {
-	void *plat_drv = (void *)&pdata->plat_drv;
-
 	memset(pdata, 0, sizeof(*pdata));
-	snd_sof_new_platform_drv(sdev, plat_drv);
+	snd_sof_new_platform_drv(sdev, &pdata->plat_drv);
 	pdata->drv = sdev->audio_ops->drv;
 	pdata->num_drv = sdev->audio_ops->num_drv;
 }
