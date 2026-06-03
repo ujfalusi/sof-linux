@@ -84,4 +84,7 @@ void sof_client_mailbox_write(struct sof_client_dev *cdev, u32 offset,
 ssize_t sof_client_ipc4_find_debug_slot_offset_by_type(struct sof_client_dev *cdev,
 						       u32 type);
 
+bool sof_client_is_dspless(struct sof_client_dev *cdev);
+int sof_client_get_num_cores(struct sof_client_dev *cdev);
+
 #endif /* __SOC_SOF_CLIENT_H */
