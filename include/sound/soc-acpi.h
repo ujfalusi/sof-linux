@@ -90,6 +90,8 @@ struct snd_soc_acpi_mach_params {
 	unsigned short subsystem_rev;
 	bool subsystem_id_set;
 	u32 bt_link_mask;
+	const char *card_name;
+	u32 dai_type_mask;
 };
 
 /**
