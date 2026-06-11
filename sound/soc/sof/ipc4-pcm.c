@@ -148,11 +148,12 @@ static void sof_ipc4_add_pipeline_by_priority(struct ipc4_pipeline_set_state_dat
 	struct sof_ipc4_pipeline *pipeline = pipe_widget->private;
 	int i, j;
 
+	/* 0 = highest priority, 7 = lowest */
 	for (i = 0; i < trigger_list->count; i++) {
-		/* add pipeline from low priority to high */
+		/* ascend=true: sort ascending [0,1,2...] = highest priority first */
 		if (ascend && pipeline->priority < pipe_priority[i])
 			break;
-		/* add pipeline from high priority to low */
+		/* ascend=false: sort descending [7,6,5...] = lowest priority first */
 		else if (!ascend && pipeline->priority > pipe_priority[i])
 			break;
 	}
@@ -187,19 +188,19 @@ sof_ipc4_add_pipeline_to_trigger_list(struct snd_sof_dev *sdev, int state,
 		 */
 		if (spipe->started_count == spipe->paused_count)
 			sof_ipc4_add_pipeline_by_priority(trigger_list, pipe_widget, pipe_priority,
-							  false);
+							  true);
 		break;
 	case SOF_IPC4_PIPE_RESET:
 		/* RESET if the pipeline is neither running nor paused */
 		if (!spipe->started_count && !spipe->paused_count)
 			sof_ipc4_add_pipeline_by_priority(trigger_list, pipe_widget, pipe_priority,
-							  true);
+							  false);
 		break;
 	case SOF_IPC4_PIPE_PAUSED:
 		/* Pause the pipeline only when its started_count is 1 more than paused_count */
 		if (spipe->paused_count == (spipe->started_count - 1))
 			sof_ipc4_add_pipeline_by_priority(trigger_list, pipe_widget, pipe_priority,
-							  true);
+							  false);
 		break;
 	default:
 		break;
