@@ -1567,7 +1567,6 @@ static int sof_ipc3_widget_setup_comp_dai(struct snd_sof_widget *swidget)
 {
 	struct snd_soc_component *scomp = swidget->scomp;
 	struct snd_sof_audio_instance *instance = snd_sof_component_get_audio_instance(scomp);
-	struct snd_sof_dev *sdev = snd_sof_component_get_sdev(scomp);
 	struct snd_sof_dai *dai = swidget->private;
 	struct sof_dai_private_data *private;
 	struct sof_ipc_comp_dai *comp_dai;
@@ -1609,7 +1608,7 @@ static int sof_ipc3_widget_setup_comp_dai(struct snd_sof_widget *swidget)
 	/* Subtract the base to match the FW dai index. */
 	if (comp_dai->type == SOF_DAI_INTEL_ALH) {
 		if (comp_dai->dai_index < INTEL_ALH_DAI_INDEX_BASE) {
-			dev_err(sdev->dev,
+			dev_err(scomp->dev,
 				"Invalid ALH dai index %d, only Pin numbers >= %d can be used\n",
 				comp_dai->dai_index, INTEL_ALH_DAI_INDEX_BASE);
 			ret = -EINVAL;
@@ -1743,6 +1742,7 @@ static void sof_ipc3_widget_free_comp_dai(struct snd_sof_widget *swidget)
 
 static int sof_ipc3_route_setup(struct snd_sof_dev *sdev, struct snd_sof_route *sroute)
 {
+	struct snd_soc_component *scomp = sroute->scomp;
 	struct sof_ipc_pipe_comp_connect connect;
 	int ret;
 
@@ -1751,33 +1751,34 @@ static int sof_ipc3_route_setup(struct snd_sof_dev *sdev, struct snd_sof_route *
 	connect.source_id = sroute->src_widget->comp_id;
 	connect.sink_id = sroute->sink_widget->comp_id;
 
-	dev_dbg(sdev->dev, "setting up route %s -> %s\n",
+	dev_dbg(scomp->dev, "setting up route %s -> %s\n",
 		sroute->src_widget->widget->name,
 		sroute->sink_widget->widget->name);
 
 	/* send ipc */
 	ret = sof_ipc_tx_message_no_reply(sdev->ipc, &connect, sizeof(connect));
 	if (ret < 0)
-		dev_err(sdev->dev, "%s: route %s -> %s failed\n", __func__,
+		dev_err(scomp->dev, "%s: route %s -> %s failed\n", __func__,
 			sroute->src_widget->widget->name, sroute->sink_widget->widget->name);
 
 	return ret;
 }
 
-static int sof_ipc3_control_load_bytes(struct snd_sof_dev *sdev, struct snd_sof_control *scontrol)
+static int sof_ipc3_control_load_bytes(struct snd_sof_control *scontrol)
 {
+	struct snd_soc_component *scomp = scontrol->scomp;
 	struct sof_ipc_ctrl_data *cdata;
 	size_t priv_size_check;
 	int ret;
 
 	if (scontrol->max_size < (sizeof(*cdata) + sizeof(struct sof_abi_hdr))) {
-		dev_err(sdev->dev, "%s: insufficient size for a bytes control: %zu.\n",
+		dev_err(scomp->dev, "%s: insufficient size for a bytes control: %zu.\n",
 			__func__, scontrol->max_size);
 		return -EINVAL;
 	}
 
 	if (scontrol->priv_size > scontrol->max_size - sizeof(*cdata)) {
-		dev_err(sdev->dev,
+		dev_err(scomp->dev,
 			"%s: bytes data size %zu exceeds max %zu.\n", __func__,
 			scontrol->priv_size, scontrol->max_size - sizeof(*cdata));
 		return -EINVAL;
@@ -1799,13 +1800,13 @@ static int sof_ipc3_control_load_bytes(struct snd_sof_dev *sdev, struct snd_sof_
 		scontrol->priv = NULL;
 
 		if (cdata->data->magic != SOF_ABI_MAGIC) {
-			dev_err(sdev->dev, "Wrong ABI magic 0x%08x.\n", cdata->data->magic);
+			dev_err(scomp->dev, "Wrong ABI magic 0x%08x.\n", cdata->data->magic);
 			ret = -EINVAL;
 			goto err;
 		}
 
 		if (SOF_ABI_VERSION_INCOMPATIBLE(SOF_ABI_VERSION, cdata->data->abi)) {
-			dev_err(sdev->dev, "Incompatible ABI version 0x%08x.\n",
+			dev_err(scomp->dev, "Incompatible ABI version 0x%08x.\n",
 				cdata->data->abi);
 			ret = -EINVAL;
 			goto err;
@@ -1813,7 +1814,7 @@ static int sof_ipc3_control_load_bytes(struct snd_sof_dev *sdev, struct snd_sof_
 
 		priv_size_check = cdata->data->size + sizeof(struct sof_abi_hdr);
 		if (priv_size_check != scontrol->priv_size) {
-			dev_err(sdev->dev, "Conflict in bytes (%zu) vs. priv size (%zu).\n",
+			dev_err(scomp->dev, "Conflict in bytes (%zu) vs. priv size (%zu).\n",
 				priv_size_check, scontrol->priv_size);
 			ret = -EINVAL;
 			goto err;
@@ -1885,7 +1886,7 @@ static int sof_ipc3_control_setup(struct snd_sof_dev *sdev, struct snd_sof_contr
 	case SND_SOC_TPLG_CTL_VOLSW_XR_SX:
 		return sof_ipc3_control_load_volume(sdev, scontrol);
 	case SND_SOC_TPLG_CTL_BYTES:
-		return sof_ipc3_control_load_bytes(sdev, scontrol);
+		return sof_ipc3_control_load_bytes(scontrol);
 	case SND_SOC_TPLG_CTL_ENUM:
 	case SND_SOC_TPLG_CTL_ENUM_VALUE:
 		return sof_ipc3_control_load_enum(sdev, scontrol);
@@ -2094,10 +2095,11 @@ static int sof_ipc3_widget_bind_event(struct snd_soc_component *scomp,
 
 static int sof_ipc3_complete_pipeline(struct snd_sof_dev *sdev, struct snd_sof_widget *swidget)
 {
+	struct snd_soc_component *scomp = swidget->scomp;
 	struct sof_ipc_pipe_ready ready;
 	int ret;
 
-	dev_dbg(sdev->dev, "tplg: complete pipeline %s id %d\n",
+	dev_dbg(scomp->dev, "tplg: complete pipeline %s id %d\n",
 		swidget->widget->name, swidget->comp_id);
 
 	memset(&ready, 0, sizeof(ready));
@@ -2142,7 +2144,8 @@ static int sof_ipc3_widget_free(struct snd_sof_dev *sdev, struct snd_sof_widget 
 
 	ret = sof_ipc_tx_message_no_reply(sdev->ipc, &ipc_free, sizeof(ipc_free));
 	if (ret < 0)
-		dev_err(sdev->dev, "failed to free widget %s\n", swidget->widget->name);
+		dev_err(swidget->scomp->dev, "failed to free widget %s\n",
+			swidget->widget->name);
 
 	return ret;
 }
@@ -2157,19 +2160,21 @@ static int sof_ipc3_dai_config(struct snd_sof_dev *sdev, struct snd_sof_widget *
 	int ret = 0;
 
 	if (!dai || !dai->private) {
-		dev_err(sdev->dev, "No private data for DAI %s\n", swidget->widget->name);
+		dev_err(swidget->scomp->dev, "No private data for DAI %s\n",
+			swidget->widget->name);
 		return -EINVAL;
 	}
 
 	private = dai->private;
 	if (!private->dai_config) {
-		dev_err(sdev->dev, "No config for DAI %s\n", dai->name);
+		dev_err(swidget->scomp->dev, "No config for DAI %s\n", dai->name);
 		return -EINVAL;
 	}
 
 	config = &private->dai_config[dai->current_config];
 	if (!config) {
-		dev_err(sdev->dev, "Invalid current config for DAI %s\n", dai->name);
+		dev_err(swidget->scomp->dev, "Invalid current config for DAI %s\n",
+			dai->name);
 		return -EINVAL;
 	}
 
@@ -2194,7 +2199,7 @@ static int sof_ipc3_dai_config(struct snd_sof_dev *sdev, struct snd_sof_widget *
 			if (flags & SOF_DAI_CONFIG_FLAGS_HW_PARAMS) {
 				/* Subtract the base to match the FW dai index. */
 				if (data->dai_index < INTEL_ALH_DAI_INDEX_BASE) {
-					dev_err(sdev->dev,
+					dev_err(swidget->scomp->dev,
 						"Invalid ALH dai index %d, only Pin numbers >= %d can be used\n",
 						config->dai_index, INTEL_ALH_DAI_INDEX_BASE);
 					return -EINVAL;
@@ -2240,7 +2245,8 @@ static int sof_ipc3_dai_config(struct snd_sof_dev *sdev, struct snd_sof_widget *
 	if (swidget->use_count > 0) {
 		ret = sof_ipc_tx_message_no_reply(sdev->ipc, config, config->hdr.size);
 		if (ret < 0)
-			dev_err(sdev->dev, "Failed to set dai config for %s\n", dai->name);
+			dev_err(swidget->scomp->dev, "Failed to set dai config for %s\n",
+				dai->name);
 
 		/* clear the flags once the IPC has been sent even if it fails */
 		config->flags = SOF_DAI_CONFIG_FLAGS_NONE;
@@ -2285,7 +2291,8 @@ static int sof_ipc3_widget_setup(struct snd_sof_dev *sdev, struct snd_sof_widget
 	}
 	}
 	if (ret < 0)
-		dev_err(sdev->dev, "Failed to setup widget %s\n", swidget->widget->name);
+		dev_err(swidget->scomp->dev, "Failed to setup widget %s\n",
+			swidget->widget->name);
 
 	return ret;
 }
@@ -2358,7 +2365,7 @@ static int sof_ipc3_set_up_all_pipelines(struct snd_sof_dev *sdev, bool verify)
 		ret = sof_route_setup(sdev, sroute->src_widget->widget,
 				      sroute->sink_widget->widget);
 		if (ret < 0) {
-			dev_err(sdev->dev, "%s: route set up failed\n", __func__);
+			dev_err(sroute->scomp->dev, "%s: route set up failed\n", __func__);
 			return ret;
 		}
 	}
@@ -2516,7 +2523,8 @@ static int sof_ipc3_tear_down_all_pipelines(struct snd_sof_dev *sdev, bool verif
 	 */
 	for_each_swidget_in_instances(swidget, sdev, instance) {
 		if (swidget->use_count != 0) {
-			dev_err(sdev->dev, "%s: widget %s is still in use: count %d\n",
+			dev_err(swidget->scomp->dev,
+				"%s: widget %s is still in use: count %d\n",
 				__func__, swidget->widget->name, swidget->use_count);
 		}
 	}
