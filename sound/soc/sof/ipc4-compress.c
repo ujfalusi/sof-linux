@@ -395,7 +395,7 @@ static int sof_ipc4_compr_set_params(struct snd_soc_component *component,
 	interval->min = compr_params->codec.sample_rate;
 	interval->max = compr_params->codec.sample_rate;
 
-	ret = sof_ipc4_compr_alloc_pages(sdev->dev, &spcm->stream[dir],
+	ret = sof_ipc4_compr_alloc_pages(component->dev, &spcm->stream[dir],
 					 component, cstream);
 	if (ret < 0)
 		return ret;
@@ -500,7 +500,6 @@ static int sof_ipc4_compr_get_params(struct snd_soc_component *component,
 				     struct snd_compr_stream *cstream,
 				     struct snd_codec *params)
 {
-	struct snd_sof_dev *sdev = snd_sof_component_get_sdev(component);
 	struct snd_soc_pcm_runtime *rtd = cstream->private_data;
 	struct snd_sof_pcm *spcm;
 	/* TODO: we don't query the supported codecs for now, if the
@@ -508,7 +507,7 @@ static int sof_ipc4_compr_get_params(struct snd_soc_component *component,
 	 */
 	spcm = snd_sof_find_spcm_dai(component, rtd);
 	if (!spcm) {
-		dev_err(sdev->dev, "%s: can't find spcm\n", __func__);
+		dev_err(component->dev, "%s: can't find spcm\n", __func__);
 		return -EINVAL;
 	}
 
@@ -533,7 +532,7 @@ static int sof_ipc4_compr_trigger(struct snd_soc_component *component,
 
 	spcm = snd_sof_find_spcm_dai(component, rtd);
 	if (!spcm) {
-		dev_err(sdev->dev, "%s: can't find spcm\n", __func__);
+		dev_err(component->dev, "%s: can't find spcm\n", __func__);
 		return -EINVAL;
 	}
 
@@ -752,7 +751,7 @@ void sof_ipc4_compr_drain_done(struct snd_sof_dev *sdev, void *ipc_message)
 	}
 
 	if (!widget_found) {
-		dev_err(sdev->dev, "%s: Host widget not found for pipeline: %s\n",
+		dev_err(swidget->scomp->dev, "%s: Host widget not found for pipeline: %s\n",
 			__func__, swidget->spipe->pipe_widget->widget->name);
 		return;
 	}
@@ -760,7 +759,7 @@ void sof_ipc4_compr_drain_done(struct snd_sof_dev *sdev, void *ipc_message)
 	/* Look up the spcm of the host copier */
 	spcm = snd_sof_find_spcm_comp_by_sdev(sdev, host_swidget->comp_id, &dir);
 	if (!spcm) {
-		dev_err(sdev->dev, "%s: Stream cannot be found for %s\n", __func__,
+		dev_err(host_swidget->scomp->dev, "%s: Stream cannot be found for %s\n", __func__,
 			host_swidget->widget->name);
 		return;
 	}
