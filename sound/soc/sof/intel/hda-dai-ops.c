@@ -417,12 +417,17 @@ hda_ipc4_find_owning_pipe_widget(struct snd_pcm_substream *substream)
 static int hda_ipc4_pre_trigger(struct snd_sof_dev *sdev, struct snd_soc_dai *cpu_dai,
 				struct snd_pcm_substream *substream, int cmd)
 {
+	struct snd_soc_pcm_runtime *rtd = snd_soc_substream_to_rtd(substream);
+	struct snd_soc_component *component = snd_soc_rtdcom_lookup(rtd, SOF_AUDIO_PCM_DRV_NAME);
 	struct sof_ipc4_fw_data *ipc4_data = sdev->private;
 	struct snd_sof_widget *pipe_widget;
 	struct sof_ipc4_pipeline *pipeline;
 	struct snd_sof_widget *swidget;
 	struct snd_soc_dapm_widget *w;
 	int ret = 0;
+
+	if (!component)
+		return -ENODEV;
 
 	w = snd_soc_dai_get_widget(cpu_dai, substream->stream);
 	swidget = w->dobj.private;
@@ -457,7 +462,7 @@ static int hda_ipc4_pre_trigger(struct snd_sof_dev *sdev, struct snd_soc_dai *cp
 		if (pipeline->state == SOF_IPC4_PIPE_PAUSED)
 			break;
 
-		ret = sof_ipc4_set_pipeline_state(sdev, pipe_widget->instance_id,
+		ret = sof_ipc4_set_pipeline_state(component, pipe_widget->instance_id,
 						  SOF_IPC4_PIPE_PAUSED);
 		if (ret < 0)
 			return ret;
@@ -510,6 +515,7 @@ static int hda_ipc4_post_trigger(struct snd_sof_dev *sdev, struct snd_soc_dai *c
 				 struct snd_pcm_substream *substream, int cmd)
 {
 	struct snd_soc_pcm_runtime *rtd = snd_soc_substream_to_rtd(substream);
+	struct snd_soc_component *component = snd_soc_rtdcom_lookup(rtd, SOF_AUDIO_PCM_DRV_NAME);
 	struct sof_ipc4_fw_data *ipc4_data = sdev->private;
 	struct snd_sof_widget *pipe_widget;
 	struct sof_ipc4_pipeline *pipeline;
@@ -517,6 +523,9 @@ static int hda_ipc4_post_trigger(struct snd_sof_dev *sdev, struct snd_soc_dai *c
 	struct snd_soc_dapm_widget *w;
 	int num_cpus = rtd->dai_link->num_cpus;
 	int ret = 0;
+
+	if (!component)
+		return -ENODEV;
 
 	w = snd_soc_dai_get_widget(cpu_dai, substream->stream);
 	swidget = w->dobj.private;
@@ -546,7 +555,7 @@ static int hda_ipc4_post_trigger(struct snd_sof_dev *sdev, struct snd_soc_dai *c
 			break;
 
 		if (pipeline->state != SOF_IPC4_PIPE_PAUSED) {
-			ret = sof_ipc4_set_pipeline_state(sdev, pipe_widget->instance_id,
+			ret = sof_ipc4_set_pipeline_state(component, pipe_widget->instance_id,
 							  SOF_IPC4_PIPE_PAUSED);
 			if (ret < 0)
 				return ret;
@@ -554,7 +563,7 @@ static int hda_ipc4_post_trigger(struct snd_sof_dev *sdev, struct snd_soc_dai *c
 			pipeline->state = SOF_IPC4_PIPE_PAUSED;
 		}
 
-		ret = sof_ipc4_set_pipeline_state(sdev, pipe_widget->instance_id,
+		ret = sof_ipc4_set_pipeline_state(component, pipe_widget->instance_id,
 						  SOF_IPC4_PIPE_RUNNING);
 		if (ret < 0)
 			return ret;
@@ -566,7 +575,7 @@ static int hda_ipc4_post_trigger(struct snd_sof_dev *sdev, struct snd_soc_dai *c
 		if (num_cpus > 1 && !hda_ipc4_all_link_dmas_running(substream))
 			break;
 
-		ret = sof_ipc4_set_pipeline_state(sdev, pipe_widget->instance_id,
+		ret = sof_ipc4_set_pipeline_state(component, pipe_widget->instance_id,
 						  SOF_IPC4_PIPE_RUNNING);
 		if (ret < 0)
 			return ret;
