@@ -396,8 +396,9 @@ static int sof_pcm_trigger(struct snd_soc_component *component,
 			   struct snd_pcm_substream *substream, int cmd)
 {
 	struct snd_soc_pcm_runtime *rtd = snd_soc_substream_to_rtd(substream);
-	struct snd_sof_dev *sdev = snd_sof_component_get_sdev(component);
 	const struct sof_ipc_pcm_ops *pcm_ops = snd_sof_component_get_pcm_ops(component);
+	struct sof_client_dev *cdev = snd_sof_component_get_cdev(component);
+	struct snd_sof_dev *sdev = snd_sof_component_get_sdev(component);
 	struct snd_sof_pcm *spcm;
 	bool reset_hw_params = false;
 	bool ipc_first = false;
@@ -453,7 +454,7 @@ static int sof_pcm_trigger(struct snd_soc_component *component,
 		 * They have the d0i3_compatible flag set and
 		 * They don't use Deep Buffer
 		 */
-		if (sdev->system_suspend_target == SOF_SUSPEND_S0IX &&
+		if (sof_client_is_suspend_target_s0ix(cdev) &&
 		    substream->stream == SNDRV_PCM_STREAM_CAPTURE &&
 		    spcm->stream[substream->stream].d0i3_compatible &&
 		    spcm->stream[substream->stream].dsp_max_burst_size_in_ms <= 1) {
