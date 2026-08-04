@@ -720,7 +720,6 @@ int sof_pcm_dai_link_fixup(struct snd_soc_pcm_runtime *rtd, struct snd_pcm_hw_pa
 
 /* PM */
 u32 snd_sof_dsp_power_target(struct snd_sof_dev *sdev);
-bool snd_sof_stream_suspend_ignored(struct snd_sof_dev *sdev);
 bool snd_sof_dsp_state_is_d0i3_compatible(struct snd_sof_dev *sdev);
 
 /* Machine driver enumeration */
