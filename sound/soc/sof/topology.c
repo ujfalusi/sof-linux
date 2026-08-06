@@ -2704,4 +2704,3 @@ out:
 
 	return ret;
 }
-EXPORT_SYMBOL(snd_sof_load_topology);
