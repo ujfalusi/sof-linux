@@ -270,37 +270,6 @@ static struct snd_soc_dai_driver imx8ulp_dai[] = {
 	IMX_SOF_DAI_DRV_ENTRY_BIDIR("sai6", 1, 32),
 };
 
-#define SOF_IMX_HW_INFO	(SNDRV_PCM_INFO_MMAP |		\
-			 SNDRV_PCM_INFO_MMAP_VALID |	\
-			 SNDRV_PCM_INFO_INTERLEAVED |	\
-			 SNDRV_PCM_INFO_PAUSE |		\
-			 SNDRV_PCM_INFO_BATCH |		\
-			 SNDRV_PCM_INFO_NO_PERIOD_WAKEUP)
-
-static const struct sof_audio_ops sof_imx8_audio_ops = {
-	.pcm_open	= sof_stream_pcm_open,
-	.pcm_close	= sof_stream_pcm_close,
-	.drv		= imx8_dai,
-	.num_drv	= ARRAY_SIZE(imx8_dai),
-	.hw_info	= SOF_IMX_HW_INFO,
-};
-
-static const struct sof_audio_ops sof_imx8m_audio_ops = {
-	.pcm_open	= sof_stream_pcm_open,
-	.pcm_close	= sof_stream_pcm_close,
-	.drv		= imx8m_dai,
-	.num_drv	= ARRAY_SIZE(imx8m_dai),
-	.hw_info	= SOF_IMX_HW_INFO,
-};
-
-static const struct sof_audio_ops sof_imx8ulp_audio_ops = {
-	.pcm_open	= sof_stream_pcm_open,
-	.pcm_close	= sof_stream_pcm_close,
-	.drv		= imx8ulp_dai,
-	.num_drv	= ARRAY_SIZE(imx8ulp_dai),
-	.hw_info	= SOF_IMX_HW_INFO,
-};
-
 static struct snd_sof_dsp_ops sof_imx8_ops;
 
 static int imx8_ops_init(struct snd_sof_dev *sdev)
@@ -314,7 +283,9 @@ static int imx8_ops_init(struct snd_sof_dev *sdev)
 	sof_imx8_ops.debugfs_add_region_item =
 		snd_sof_debugfs_add_region_item_iomem;
 
-	sdev->audio_ops = get_chip_info(sdev)->audio_ops;
+	/* ... and finally set DAI driver */
+	sof_imx8_ops.drv = get_chip_info(sdev)->drv;
+	sof_imx8_ops.num_drv = get_chip_info(sdev)->num_drv;
 
 	return 0;
 }
@@ -368,7 +339,8 @@ static const struct imx_chip_info imx8_chip_info = {
 		.window_offset = 0x800000,
 	},
 	.memory = imx8_memory_regions,
-	.audio_ops = &sof_imx8_audio_ops,
+	.drv = imx8_dai,
+	.num_drv = ARRAY_SIZE(imx8_dai),
 	.ops = &imx8_chip_ops,
 };
 
@@ -379,7 +351,8 @@ static const struct imx_chip_info imx8x_chip_info = {
 		.window_offset = 0x800000,
 	},
 	.memory = imx8_memory_regions,
-	.audio_ops = &sof_imx8_audio_ops,
+	.drv = imx8_dai,
+	.num_drv = ARRAY_SIZE(imx8_dai),
 	.ops = &imx8x_chip_ops,
 };
 
@@ -390,7 +363,8 @@ static const struct imx_chip_info imx8m_chip_info = {
 		.window_offset = 0x800000,
 	},
 	.memory = imx8m_memory_regions,
-	.audio_ops = &sof_imx8m_audio_ops,
+	.drv = imx8m_dai,
+	.num_drv = ARRAY_SIZE(imx8m_dai),
 	.ops = &imx8m_chip_ops,
 };
 
@@ -402,7 +376,8 @@ static const struct imx_chip_info imx8ulp_chip_info = {
 	},
 	.has_dma_reserved = true,
 	.memory = imx8ulp_memory_regions,
-	.audio_ops = &sof_imx8ulp_audio_ops,
+	.drv = imx8ulp_dai,
+	.num_drv = ARRAY_SIZE(imx8ulp_dai),
 	.ops = &imx8ulp_chip_ops,
 };
 

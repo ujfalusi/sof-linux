@@ -15,9 +15,7 @@
 static int sof_ipc3_set_get_kcontrol_data(struct snd_sof_control *scontrol,
 					  bool set, bool lock)
 {
-	struct snd_sof_audio_instance *instance =
-		snd_sof_component_get_audio_instance(scontrol->scomp);
-	struct snd_sof_dev *sdev = snd_sof_component_get_sdev(scontrol->scomp);
+	struct snd_sof_dev *sdev = snd_soc_component_get_drvdata(scontrol->scomp);
 	struct sof_ipc_ctrl_data *cdata = scontrol->ipc_control_data;
 	const struct sof_ipc_ops *iops = sdev->ipc->ops;
 	enum sof_ipc_ctrl_type ctrl_type;
@@ -26,7 +24,7 @@ static int sof_ipc3_set_get_kcontrol_data(struct snd_sof_control *scontrol,
 	u32 ipc_cmd, msg_bytes;
 	int ret = 0;
 
-	list_for_each_entry(swidget, &instance->widget_list, list) {
+	list_for_each_entry(swidget, &sdev->widget_list, list) {
 		if (swidget->comp_id == scontrol->comp_id) {
 			widget_found = true;
 			break;
@@ -34,7 +32,7 @@ static int sof_ipc3_set_get_kcontrol_data(struct snd_sof_control *scontrol,
 	}
 
 	if (!widget_found) {
-		dev_err(scontrol->scomp->dev, "%s: can't find widget with id %d\n", __func__,
+		dev_err(sdev->dev, "%s: can't find widget with id %d\n", __func__,
 			scontrol->comp_id);
 		return -EINVAL;
 	}
@@ -588,9 +586,8 @@ static void snd_sof_update_control(struct snd_sof_control *scontrol,
 	}
 }
 
-static void sof_ipc3_control_update(struct snd_soc_component *scomp, void *ipc_control_message)
+static void sof_ipc3_control_update(struct snd_sof_dev *sdev, void *ipc_control_message)
 {
-	struct snd_sof_audio_instance *instance = snd_sof_component_get_audio_instance(scomp);
 	struct sof_ipc_ctrl_data *cdata = ipc_control_message;
 	struct snd_soc_dapm_widget *widget;
 	struct snd_sof_control *scontrol;
@@ -603,21 +600,14 @@ static void sof_ipc3_control_update(struct snd_soc_component *scomp, void *ipc_c
 	bool found = false;
 	int i, type;
 
-	if (!instance)
-		return;
-
 	if (cdata->type == SOF_CTRL_TYPE_VALUE_COMP_GET ||
 	    cdata->type == SOF_CTRL_TYPE_VALUE_COMP_SET) {
-		dev_err(scomp->dev, "Component data is not supported in control notification\n");
+		dev_err(sdev->dev, "Component data is not supported in control notification\n");
 		return;
 	}
 
-	/*
-	 * Find the swidget first. The notification is broadcast to all audio
-	 * clients of the DSP, a miss here only means that the component is not
-	 * owned by this client.
-	 */
-	list_for_each_entry(swidget, &instance->widget_list, list) {
+	/* Find the swidget first */
+	list_for_each_entry(swidget, &sdev->widget_list, list) {
 		if (swidget->comp_id == cdata->comp_id) {
 			found = true;
 			break;
@@ -640,7 +630,7 @@ static void sof_ipc3_control_update(struct snd_soc_component *scomp, void *ipc_c
 		type = SND_SOC_TPLG_TYPE_ENUM;
 		break;
 	default:
-		dev_err(swidget->scomp->dev, "Unknown cmd %u in %s\n", cdata->cmd, __func__);
+		dev_err(sdev->dev, "Unknown cmd %u in %s\n", cdata->cmd, __func__);
 		return;
 	}
 
@@ -703,7 +693,7 @@ static void sof_ipc3_control_update(struct snd_soc_component *scomp, void *ipc_c
 	}
 
 	if (cdata->rhdr.hdr.size != expected_size) {
-		dev_err(swidget->scomp->dev, "Component notification size mismatch\n");
+		dev_err(sdev->dev, "Component notification size mismatch\n");
 		return;
 	}
 
@@ -723,18 +713,16 @@ static void sof_ipc3_control_update(struct snd_soc_component *scomp, void *ipc_c
 static int sof_ipc3_widget_kcontrol_setup(struct snd_sof_dev *sdev,
 					  struct snd_sof_widget *swidget)
 {
-	struct snd_sof_audio_instance *instance =
-		snd_sof_component_get_audio_instance(swidget->scomp);
 	struct snd_sof_control *scontrol;
 	int ret;
 
 	/* set up all controls for the widget */
-	list_for_each_entry(scontrol, &instance->kcontrol_list, list)
+	list_for_each_entry(scontrol, &sdev->kcontrol_list, list)
 		if (scontrol->comp_id == swidget->comp_id) {
 			/* set kcontrol data in DSP */
 			ret = sof_ipc3_set_get_kcontrol_data(scontrol, true, false);
 			if (ret < 0) {
-				dev_err(swidget->scomp->dev,
+				dev_err(sdev->dev,
 					"kcontrol %d set up failed for widget %s\n",
 					scontrol->comp_id, swidget->widget->name);
 				return ret;
@@ -751,7 +739,7 @@ static int sof_ipc3_widget_kcontrol_setup(struct snd_sof_dev *sdev,
 
 			ret = sof_ipc3_set_get_kcontrol_data(scontrol, false, false);
 			if (ret < 0)
-				dev_warn(swidget->scomp->dev,
+				dev_warn(sdev->dev,
 					 "kcontrol %d read failed for widget %s\n",
 					 scontrol->comp_id, swidget->widget->name);
 		}
