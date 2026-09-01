@@ -20,8 +20,8 @@ static struct snd_soc_card sof_nocodec_card = {
 
 static int sof_nocodec_bes_setup(struct device *dev,
 				 struct snd_soc_dai_driver *drv,
-				 struct snd_soc_dai_link *links, int link_num,
-				 const char *platform_name)
+				 struct snd_soc_dai_link *links,
+				 int link_num)
 {
 	struct snd_soc_card *card = &sof_nocodec_card;
 	struct snd_soc_dai_link_component *dlc;
@@ -54,7 +54,7 @@ static int sof_nocodec_bes_setup(struct device *dev,
 		links[i].id = i;
 		links[i].no_pcm = 1;
 		links[i].cpus->dai_name = drv[i].name;
-		links[i].platforms->name = platform_name;
+		links[i].platforms->name = dev_name(dev->parent);
 
 		links[i].playback_only =  drv[i].playback.channels_min && !drv[i].capture.channels_min;
 		links[i].capture_only  = !drv[i].playback.channels_min &&  drv[i].capture.channels_min;
@@ -68,8 +68,7 @@ static int sof_nocodec_bes_setup(struct device *dev,
 	return 0;
 }
 
-static int sof_nocodec_setup(struct device *dev, struct snd_soc_acpi_mach *mach,
-			     const char *platform_name)
+static int sof_nocodec_setup(struct device *dev, struct snd_soc_acpi_mach *mach)
 {
 	u32 num_dai_drivers = mach->mach_params.num_dai_drivers;
 	struct snd_soc_dai_driver *dai_drivers = mach->mach_params.dai_drivers;
@@ -80,8 +79,7 @@ static int sof_nocodec_setup(struct device *dev, struct snd_soc_acpi_mach *mach,
 	if (!links)
 		return -ENOMEM;
 
-	return sof_nocodec_bes_setup(dev, dai_drivers, links, num_dai_drivers,
-				     platform_name);
+	return sof_nocodec_bes_setup(dev, dai_drivers, links, num_dai_drivers);
 }
 
 static int sof_nocodec_probe(struct platform_device *pdev)
@@ -95,7 +93,7 @@ static int sof_nocodec_probe(struct platform_device *pdev)
 
 	snd_soc_card_set_topology_name(card, "sof");
 
-	ret = sof_nocodec_setup(card->dev, mach, mach->mach_params.platform);
+	ret = sof_nocodec_setup(card->dev, mach);
 	if (ret < 0)
 		return ret;
 
