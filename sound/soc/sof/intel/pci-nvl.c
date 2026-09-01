@@ -53,7 +53,6 @@ static const struct sof_dev_desc nvl_desc = {
 	},
 	.nocodec_tplg_filename = "sof-nvl-nocodec.tplg",
 	.ops = &sof_nvl_ops,
-	.audio_ops = &sof_hda_audio_ops,
 	.ops_init = sof_nvl_ops_init,
 };
 
@@ -84,7 +83,6 @@ static const struct sof_dev_desc nvl_s_desc = {
 	},
 	.nocodec_tplg_filename = "sof-nvl-nocodec.tplg",
 	.ops = &sof_nvl_ops,
-	.audio_ops = &sof_hda_audio_ops,
 	.ops_init = sof_nvl_ops_init,
 };
 

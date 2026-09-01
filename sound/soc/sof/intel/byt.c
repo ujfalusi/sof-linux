@@ -19,7 +19,6 @@
 #include <sound/soc-acpi-intel-match.h>
 #include <sound/intel-dsp-config.h>
 #include "../ops.h"
-#include "../sof-client.h"
 #include "atom.h"
 #include "shim.h"
 #include "../sof-acpi-dev.h"
@@ -214,20 +213,6 @@ irq:
 }
 
 /* baytrail ops */
-static const struct sof_audio_ops sof_byt_audio_ops = {
-	.pcm_open	= sof_stream_pcm_open,
-	.pcm_close	= sof_stream_pcm_close,
-
-	.drv		= atom_dai,
-	.num_drv	= 3,
-
-	.hw_info =	SNDRV_PCM_INFO_MMAP |
-			SNDRV_PCM_INFO_MMAP_VALID |
-			SNDRV_PCM_INFO_INTERLEAVED |
-			SNDRV_PCM_INFO_PAUSE |
-			SNDRV_PCM_INFO_BATCH,
-};
-
 static const struct snd_sof_dsp_ops sof_byt_ops = {
 	/* device init */
 	.probe		= byt_acpi_probe,
@@ -265,15 +250,15 @@ static const struct snd_sof_dsp_ops sof_byt_ops = {
 	.machine_unregister = sof_machine_unregister,
 	.set_mach_params = atom_set_mach_params,
 
-	/* audio client */
-	.register_audio_client = sof_register_audio_client,
-	.unregister_audio_client = sof_unregister_audio_client,
-
 	/* debug */
 	.debug_map	= byt_debugfs,
 	.debug_map_count	= ARRAY_SIZE(byt_debugfs),
 	.dbg_dump	= atom_dump,
 	.debugfs_add_region_item = snd_sof_debugfs_add_region_item_iomem,
+
+	/* stream callbacks */
+	.pcm_open	= sof_stream_pcm_open,
+	.pcm_close	= sof_stream_pcm_close,
 
 	/*Firmware loading */
 	.load_firmware	= snd_sof_load_firmware_memcpy,
@@ -281,6 +266,17 @@ static const struct snd_sof_dsp_ops sof_byt_ops = {
 	/* PM */
 	.suspend = byt_suspend,
 	.resume = byt_resume,
+
+	/* DAI drivers */
+	.drv = atom_dai,
+	.num_drv = 3, /* we have only 3 SSPs on byt*/
+
+	/* ALSA HW info flags */
+	.hw_info =	SNDRV_PCM_INFO_MMAP |
+			SNDRV_PCM_INFO_MMAP_VALID |
+			SNDRV_PCM_INFO_INTERLEAVED |
+			SNDRV_PCM_INFO_PAUSE |
+			SNDRV_PCM_INFO_BATCH,
 
 	.dsp_arch_ops = &sof_xtensa_arch_ops,
 };
@@ -292,20 +288,6 @@ static const struct sof_intel_dsp_desc byt_chip_info = {
 };
 
 /* cherrytrail and braswell ops */
-static const struct sof_audio_ops sof_cht_audio_ops = {
-	.pcm_open	= sof_stream_pcm_open,
-	.pcm_close	= sof_stream_pcm_close,
-
-	.drv		= atom_dai,
-	.num_drv	= 6,
-
-	.hw_info =	SNDRV_PCM_INFO_MMAP |
-			SNDRV_PCM_INFO_MMAP_VALID |
-			SNDRV_PCM_INFO_INTERLEAVED |
-			SNDRV_PCM_INFO_PAUSE |
-			SNDRV_PCM_INFO_BATCH,
-};
-
 static const struct snd_sof_dsp_ops sof_cht_ops = {
 	/* device init */
 	.probe		= byt_acpi_probe,
@@ -343,15 +325,15 @@ static const struct snd_sof_dsp_ops sof_cht_ops = {
 	.machine_unregister = sof_machine_unregister,
 	.set_mach_params = atom_set_mach_params,
 
-	/* audio client */
-	.register_audio_client = sof_register_audio_client,
-	.unregister_audio_client = sof_unregister_audio_client,
-
 	/* debug */
 	.debug_map	= cht_debugfs,
 	.debug_map_count	= ARRAY_SIZE(cht_debugfs),
 	.dbg_dump	= atom_dump,
 	.debugfs_add_region_item = snd_sof_debugfs_add_region_item_iomem,
+
+	/* stream callbacks */
+	.pcm_open	= sof_stream_pcm_open,
+	.pcm_close	= sof_stream_pcm_close,
 
 	/*Firmware loading */
 	.load_firmware	= snd_sof_load_firmware_memcpy,
@@ -359,6 +341,18 @@ static const struct snd_sof_dsp_ops sof_cht_ops = {
 	/* PM */
 	.suspend = byt_suspend,
 	.resume = byt_resume,
+
+	/* DAI drivers */
+	.drv = atom_dai,
+	/* all 6 SSPs may be available for cherrytrail */
+	.num_drv = 6,
+
+	/* ALSA HW info flags */
+	.hw_info =	SNDRV_PCM_INFO_MMAP |
+			SNDRV_PCM_INFO_MMAP_VALID |
+			SNDRV_PCM_INFO_INTERLEAVED |
+			SNDRV_PCM_INFO_PAUSE |
+			SNDRV_PCM_INFO_BATCH,
 
 	.dsp_arch_ops = &sof_xtensa_arch_ops,
 };
@@ -390,7 +384,6 @@ static const struct sof_dev_desc sof_acpi_baytrailcr_desc = {
 	},
 	.nocodec_tplg_filename = "sof-byt-nocodec.tplg",
 	.ops = &sof_byt_ops,
-	.audio_ops = &sof_byt_audio_ops,
 };
 
 static const struct sof_dev_desc sof_acpi_baytrail_desc = {
@@ -413,7 +406,6 @@ static const struct sof_dev_desc sof_acpi_baytrail_desc = {
 	},
 	.nocodec_tplg_filename = "sof-byt-nocodec.tplg",
 	.ops = &sof_byt_ops,
-	.audio_ops = &sof_byt_audio_ops,
 };
 
 static const struct sof_dev_desc sof_acpi_cherrytrail_desc = {
@@ -436,7 +428,6 @@ static const struct sof_dev_desc sof_acpi_cherrytrail_desc = {
 	},
 	.nocodec_tplg_filename = "sof-cht-nocodec.tplg",
 	.ops = &sof_cht_ops,
-	.audio_ops = &sof_cht_audio_ops,
 };
 
 static const struct acpi_device_id sof_baytrail_match[] = {
@@ -484,7 +475,6 @@ module_platform_driver(snd_sof_acpi_intel_byt_driver);
 
 MODULE_LICENSE("Dual BSD/GPL");
 MODULE_DESCRIPTION("SOF support for Baytrail/Cherrytrail");
-MODULE_IMPORT_NS("SND_SOC_SOF_CLIENT");
 MODULE_IMPORT_NS("SND_SOC_SOF_XTENSA");
 MODULE_IMPORT_NS("SND_SOC_SOF_ACPI_DEV");
 MODULE_IMPORT_NS("SND_SOC_SOF_INTEL_ATOM_HIFI_EP");

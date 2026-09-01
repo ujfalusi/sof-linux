@@ -54,7 +54,6 @@ static const struct sof_dev_desc mtl_desc = {
 	},
 	.nocodec_tplg_filename = "sof-mtl-nocodec.tplg",
 	.ops = &sof_mtl_ops,
-	.audio_ops = &sof_hda_audio_ops,
 	.ops_init = sof_mtl_ops_init,
 	.ops_free = hda_ops_free,
 };
@@ -85,7 +84,6 @@ static const struct sof_dev_desc arl_desc = {
 	},
 	.nocodec_tplg_filename = "sof-arl-nocodec.tplg",
 	.ops = &sof_mtl_ops,
-	.audio_ops = &sof_hda_audio_ops,
 	.ops_init = sof_mtl_ops_init,
 	.ops_free = hda_ops_free,
 };
@@ -116,7 +114,6 @@ static const struct sof_dev_desc arl_s_desc = {
 	},
 	.nocodec_tplg_filename = "sof-arl-nocodec.tplg",
 	.ops = &sof_mtl_ops,
-	.audio_ops = &sof_hda_audio_ops,
 	.ops_init = sof_mtl_ops_init,
 	.ops_free = hda_ops_free,
 };
