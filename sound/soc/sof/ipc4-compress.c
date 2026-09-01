@@ -73,6 +73,7 @@ static u64 sof_ipc4_compr_calc_max_buffer_size(struct snd_sof_pcm_stream *sps)
 static int sof_ipc4_compr_open(struct snd_soc_component *component,
 			       struct snd_compr_stream *cstream)
 {
+	struct snd_sof_dev *sdev = snd_soc_component_get_drvdata(component);
 	struct snd_soc_pcm_runtime *rtd = cstream->private_data;
 	struct snd_sof_pcm *spcm;
 	int dir, ret;
@@ -88,7 +89,7 @@ static int sof_ipc4_compr_open(struct snd_soc_component *component,
 
 	spcm_dbg(spcm, dir, "Entry: open\n");
 
-	ret = snd_sof_compr_platform_open(component, cstream);
+	ret = snd_sof_compr_platform_open(sdev, cstream);
 	if (ret < 0) {
 		spcm_err(spcm, dir, "platform compress open failed %d\n", ret);
 		return ret;
@@ -108,20 +109,20 @@ static int sof_ipc4_compr_stream_free(struct snd_sof_dev *sdev,
 				      struct snd_sof_pcm *spcm,
 				      struct snd_compr_stream *cstream)
 {
-	const struct sof_ipc_pcm_ops *pcm_ops = snd_sof_component_get_pcm_ops(spcm->scomp);
+	const struct sof_ipc_pcm_ops *pcm_ops = sof_ipc_get_ops(sdev, pcm);
 	int dir = cstream->direction;
 	int ret = 0;
 	int err = 0;
 
 	if (spcm->prepared[dir]) {
 		if (spcm->pending_stop[dir])
-			pcm_ops->trigger(spcm->scomp, NULL, spcm,
+			pcm_ops->trigger(sdev->component, NULL, spcm,
 					 SNDRV_PCM_TRIGGER_STOP, dir);
 
-		snd_sof_compr_platform_trigger(spcm->scomp, cstream,
+		snd_sof_compr_platform_trigger(sdev, cstream,
 					       SNDRV_PCM_TRIGGER_STOP);
 
-		err = pcm_ops->hw_free(spcm->scomp, NULL, spcm, dir);
+		err = pcm_ops->hw_free(sdev->component, NULL, spcm, dir);
 		if (err < 0)
 			spcm_err(spcm, dir, "pcm_ops->hw_free failed %d\n", err);
 	}
@@ -132,7 +133,7 @@ static int sof_ipc4_compr_stream_free(struct snd_sof_dev *sdev,
 	spcm->stream[dir].cstream = NULL;
 
 	/* reset the DMA */
-	ret = snd_sof_compr_platform_hw_free(spcm->scomp, cstream);
+	ret = snd_sof_compr_platform_hw_free(sdev, cstream);
 	if (ret < 0) {
 		spcm_err(spcm, dir, "platform hw free failed %d\n", ret);
 		if (!err)
@@ -140,7 +141,7 @@ static int sof_ipc4_compr_stream_free(struct snd_sof_dev *sdev,
 	}
 
 	/* free widget list */
-	ret = sof_widget_list_free(spcm->scomp, spcm, dir);
+	ret = sof_widget_list_free(sdev, spcm, dir);
 	if (ret < 0 && err == 0) {
 		spcm_err(spcm, dir, "sof_widget_list_free failed %d\n", ret);
 		err = ret;
@@ -152,7 +153,7 @@ static int sof_ipc4_compr_stream_free(struct snd_sof_dev *sdev,
 static int sof_ipc4_compr_free(struct snd_soc_component *component,
 			       struct snd_compr_stream *cstream)
 {
-	struct snd_sof_dev *sdev = snd_sof_component_get_sdev(component);
+	struct snd_sof_dev *sdev = snd_soc_component_get_drvdata(component);
 	struct snd_soc_pcm_runtime *rtd = cstream->private_data;
 	struct snd_sof_pcm *spcm;
 	int ret, err;
@@ -166,13 +167,13 @@ static int sof_ipc4_compr_free(struct snd_soc_component *component,
 	ret = sof_ipc4_compr_stream_free(sdev, spcm, cstream);
 
 	/* unprepare and free the list of DAPM widgets */
-	sof_widget_list_unprepare(component, spcm, cstream->direction);
+	sof_widget_list_unprepare(sdev, spcm, cstream->direction);
 
 	cancel_work_sync(&spcm->stream[cstream->direction].period_elapsed_work);
 
 	snd_compr_free_pages(cstream);
 
-	err = snd_sof_compr_platform_close(component, cstream);
+	err = snd_sof_compr_platform_close(sdev, cstream);
 	if (err < 0) {
 		spcm_err(spcm, cstream->direction,
 			 "platform compress close failed %d\n", err);
@@ -195,7 +196,7 @@ static int sof_ipc4_compr_get_caps(struct snd_soc_component *component,
 				   struct snd_compr_stream *cstream,
 				   struct snd_compr_caps *caps)
 {
-	struct snd_sof_dev *sdev = snd_sof_component_get_sdev(component);
+	struct snd_sof_dev *sdev = snd_soc_component_get_drvdata(component);
 	struct snd_soc_pcm_runtime *rtd = cstream->private_data;
 	struct sof_ipc4_fw_data *ipc4_data = sdev->private;
 	struct sof_ipc4_codec_info_data *codec_info = ipc4_data->codec_info;
@@ -340,8 +341,8 @@ static int sof_ipc4_compr_set_params(struct snd_soc_component *component,
 				     struct snd_compr_stream *cstream,
 				     struct snd_compr_params *params)
 {
-	struct snd_sof_dev *sdev = snd_sof_component_get_sdev(component);
-	const struct sof_ipc_tplg_ops *tplg_ops = snd_sof_component_get_tplg_ops(component);
+	struct snd_sof_dev *sdev = snd_soc_component_get_drvdata(component);
+	const struct sof_ipc_tplg_ops *tplg_ops = sof_ipc_get_ops(sdev, tplg);
 	struct sof_ipc4_compr_init_data *compr_data __free(kfree) = NULL;
 	struct snd_soc_pcm_runtime *rtd = cstream->private_data;
 	struct snd_sof_platform_stream_params *platform_params;
@@ -360,7 +361,7 @@ static int sof_ipc4_compr_set_params(struct snd_soc_component *component,
 	if (!spcm)
 		return -EINVAL;
 
-	host_swidget = snd_sof_find_swidget_by_comp_id(component, spcm->stream[dir].comp_id);
+	host_swidget = snd_sof_find_swidget_by_comp_id(sdev, spcm->stream[dir].comp_id);
 	if (!host_swidget) {
 		spcm_err(spcm, dir, "failed to find host widget with comp_id %d\n",
 			 spcm->stream[dir].comp_id);
@@ -452,7 +453,7 @@ static int sof_ipc4_compr_set_params(struct snd_soc_component *component,
 	interval->max = cstream->runtime->buffer_size;
 
 	platform_params = &spcm->platform_params[dir];
-	ret = snd_sof_compr_platform_hw_params(component, cstream, compr_params,
+	ret = snd_sof_compr_platform_hw_params(sdev, cstream, compr_params,
 					       platform_params);
 	if (ret < 0) {
 		spcm_err(spcm, dir, "platform compress hw params failed\n");
@@ -498,7 +499,7 @@ static int sof_ipc4_compr_set_params(struct snd_soc_component *component,
 		tplg_ops->host_config(sdev, host_swidget, platform_params);
 
 	/* set up the widgets and pipelines in the DSP */
-	ret = sof_widget_list_setup(component, spcm, &p, platform_params, dir);
+	ret = sof_widget_list_setup(sdev, spcm, &p, platform_params, dir);
 	if (ret < 0) {
 		spcm_err(spcm, dir, "widget list set up failed\n");
 		goto clear_init_ext;
@@ -526,7 +527,7 @@ clear_init_ext:
 	process->init_ext_module_size = 0;
 
 free_list:
-	sof_widget_list_unprepare(component, spcm, dir);
+	sof_widget_list_unprepare(sdev, spcm, dir);
 
 free_pages:
 	snd_compr_free_pages(cstream);
@@ -538,6 +539,7 @@ static int sof_ipc4_compr_get_params(struct snd_soc_component *component,
 				     struct snd_compr_stream *cstream,
 				     struct snd_codec *params)
 {
+	struct snd_sof_dev *sdev = snd_soc_component_get_drvdata(component);
 	struct snd_soc_pcm_runtime *rtd = cstream->private_data;
 	struct snd_sof_pcm *spcm;
 	/* TODO: we don't query the supported codecs for now, if the
@@ -545,7 +547,7 @@ static int sof_ipc4_compr_get_params(struct snd_soc_component *component,
 	 */
 	spcm = snd_sof_find_spcm_dai(component, rtd);
 	if (!spcm) {
-		dev_err(component->dev, "%s: can't find spcm\n", __func__);
+		dev_err(sdev->dev, "%s: can't find spcm\n", __func__);
 		return -EINVAL;
 	}
 
@@ -560,8 +562,9 @@ static int sof_ipc4_compr_get_params(struct snd_soc_component *component,
 static int sof_ipc4_compr_trigger(struct snd_soc_component *component,
 				  struct snd_compr_stream *cstream, int cmd)
 {
+	struct snd_sof_dev *sdev = snd_soc_component_get_drvdata(component);
 	struct snd_soc_pcm_runtime *rtd = cstream->private_data;
-	const struct sof_ipc_pcm_ops *pcm_ops = snd_sof_component_get_pcm_ops(component);
+	const struct sof_ipc_pcm_ops *pcm_ops = sof_ipc_get_ops(sdev, pcm);
 	struct snd_sof_pcm *spcm;
 	int dir = cstream->direction;
 	bool trigger_platform = false;
@@ -569,7 +572,7 @@ static int sof_ipc4_compr_trigger(struct snd_soc_component *component,
 
 	spcm = snd_sof_find_spcm_dai(component, rtd);
 	if (!spcm) {
-		dev_err(component->dev, "%s: can't find spcm\n", __func__);
+		dev_err(sdev->dev, "%s: can't find spcm\n", __func__);
 		return -EINVAL;
 	}
 
@@ -618,7 +621,7 @@ static int sof_ipc4_compr_trigger(struct snd_soc_component *component,
 	}
 
 	if (!ret && trigger_platform) {
-		ret = snd_sof_compr_platform_trigger(component, cstream, cmd);
+		ret = snd_sof_compr_platform_trigger(sdev, cstream, cmd);
 		if (ret < 0)
 			spcm_err(spcm, dir,
 				 "platform compress trigger start failed %d\n",
@@ -708,7 +711,7 @@ static int sof_ipc4_compr_pointer(struct snd_soc_component *component,
 				  struct snd_compr_stream *cstream,
 				  struct snd_compr_tstamp64 *tstamp)
 {
-	struct snd_sof_dev *sdev = snd_sof_component_get_sdev(component);
+	struct snd_sof_dev *sdev = snd_soc_component_get_drvdata(component);
 	struct snd_soc_pcm_runtime *rtd = cstream->private_data;
 	struct sof_ipc4_timestamp_info *time_info;
 	struct snd_pcm_hw_params *params;
@@ -723,7 +726,7 @@ static int sof_ipc4_compr_pointer(struct snd_soc_component *component,
 
 	params = &spcm->params[cstream->direction];
 
-	ret = snd_sof_compr_platform_pointer(component, cstream, tstamp);
+	ret = snd_sof_compr_platform_pointer(sdev, cstream, tstamp);
 	if (ret < 0) {
 		spcm_err(spcm, cstream->direction,
 			 "platform compress pointer failed %d\n", ret);
@@ -748,7 +751,7 @@ static int sof_ipc4_compr_pointer(struct snd_soc_component *component,
 	}
 
 	if (!time_info->llp_offset) {
-		dai_cnt = snd_sof_compr_get_dai_frame_counter(component, cstream);
+		dai_cnt = snd_sof_compr_get_dai_frame_counter(sdev, cstream);
 	} else {
 		struct sof_ipc4_llp_reading_slot llp;
 
@@ -772,22 +775,20 @@ host_only:
 	return 0;
 }
 
-void sof_ipc4_compr_drain_done(struct snd_soc_component *scomp, void *ipc_message)
+void sof_ipc4_compr_drain_done(struct snd_sof_dev *sdev, void *ipc_message)
 {
 	struct sof_ipc4_msg *ipc4_msg = ipc_message;
 	struct sof_ipc4_notify_module_data *ndata = ipc4_msg->data_ptr;
 	struct snd_sof_widget *swidget, *host_swidget;
-	struct snd_sof_audio_instance *instance;
 	bool widget_found = false;
 	struct snd_sof_pcm *spcm;
 	int dir;
 
 	/* Find the swidget based on ndata->module_id and ndata->instance_id */
-	swidget = sof_ipc4_find_swidget_by_ids(scomp, ndata->module_id,
+	swidget = sof_ipc4_find_swidget_by_ids(sdev, ndata->module_id,
 					       ndata->instance_id);
 	if (!swidget) {
-		/* The module is not owned by this component */
-		dev_dbg(scomp->dev, "%s: No widget for module %u.%u\n",
+		dev_err(sdev->dev, "%s: Failed to find widget for module %u.%u\n",
 			__func__, ndata->module_id, ndata->instance_id);
 		return;
 	}
@@ -796,8 +797,7 @@ void sof_ipc4_compr_drain_done(struct snd_soc_component *scomp, void *ipc_messag
 		return;
 
 	/* Find the swidget of the host copier on the same pipeline */
-	instance = snd_sof_component_get_audio_instance(swidget->scomp);
-	list_for_each_entry(host_swidget, &instance->widget_list, list) {
+	list_for_each_entry(host_swidget, &sdev->widget_list, list) {
 		if (WIDGET_IS_AIF(host_swidget->id) &&
 		    host_swidget->pipeline_id == swidget->pipeline_id) {
 			widget_found = true;
@@ -806,15 +806,15 @@ void sof_ipc4_compr_drain_done(struct snd_soc_component *scomp, void *ipc_messag
 	}
 
 	if (!widget_found) {
-		dev_err(swidget->scomp->dev, "%s: Host widget not found for pipeline: %s\n",
+		dev_err(sdev->dev, "%s: Host widget not found for pipeline: %s\n",
 			__func__, swidget->spipe->pipe_widget->widget->name);
 		return;
 	}
 
 	/* Look up the spcm of the host copier */
-	spcm = snd_sof_find_spcm_comp(host_swidget->scomp, host_swidget->comp_id, &dir);
+	spcm = snd_sof_find_spcm_comp(sdev->component, host_swidget->comp_id, &dir);
 	if (!spcm) {
-		dev_err(host_swidget->scomp->dev, "%s: Stream cannot be found for %s\n", __func__,
+		dev_err(sdev->dev, "%s: Stream cannot be found for %s\n", __func__,
 			host_swidget->widget->name);
 		return;
 	}

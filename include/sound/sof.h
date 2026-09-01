@@ -17,7 +17,6 @@
 
 struct snd_sof_dsp_ops;
 struct snd_sof_dev;
-struct sof_audio_ops;
 
 /**
  * enum sof_fw_state - DSP firmware state definitions
@@ -56,22 +55,6 @@ enum sof_ipc_type {
 	SOF_IPC_TYPE_3,
 	SOF_IPC_TYPE_4,
 	SOF_IPC_TYPE_COUNT
-};
-
-/* mailbox descriptor, used for host <-> DSP IPC */
-struct snd_sof_mailbox {
-	size_t size;
-	u32 offset;
-};
-
-/* DSP mailbox types */
-enum snd_sof_mailbox_type {
-	SOF_MAILBOX_FW_INFO,
-	SOF_MAILBOX_DSP,
-	SOF_MAILBOX_HOST,
-	SOF_MAILBOX_STREAM,
-	SOF_MAILBOX_DEBUG,
-	SOF_MAILBOX_COUNT
 };
 
 struct sof_loadable_file_profile {
@@ -188,7 +171,6 @@ struct sof_dev_desc {
 	const char *default_fw_filename[SOF_IPC_TYPE_COUNT];
 
 	const struct snd_sof_dsp_ops *ops;
-	const struct sof_audio_ops *audio_ops;
 	int (*ops_init)(struct snd_sof_dev *sdev);
 	void (*ops_free)(struct snd_sof_dev *sdev);
 };
