@@ -111,8 +111,7 @@ static int skl_hda_audio_probe(struct platform_device *pdev)
 	if (!card)
 		return -ENOMEM;
 
-	card->name = mach->mach_params.card_name ?
-		     mach->mach_params.card_name : "hda-dsp";
+	card->name = "hda-dsp";
 	card->owner = THIS_MODULE;
 	card->fully_routed = true;
 	card->late_probe = skl_hda_card_late_probe;
@@ -130,8 +129,6 @@ static int skl_hda_audio_probe(struct platform_device *pdev)
 
 	if (mach->mach_params.codec_mask & IDISP_CODEC_MASK)
 		ctx->hdmi.idisp_codec = true;
-
-	ctx->dmic_be_num = mach->mach_params.dmic_num;
 
 	ctx->link_order_overwrite = HDA_LINK_ORDER;
 	ctx->link_id_overwrite = HDA_LINK_IDS;

@@ -96,8 +96,7 @@ int sof_set_stream_data_offset(struct snd_sof_dev *sdev,
 }
 EXPORT_SYMBOL(sof_set_stream_data_offset);
 
-int sof_stream_pcm_open(struct snd_soc_component *component,
-			struct snd_sof_pcm *spcm,
+int sof_stream_pcm_open(struct snd_sof_dev *sdev,
 			struct snd_pcm_substream *substream)
 {
 	struct sof_stream *stream = kmalloc_obj(*stream);
@@ -119,7 +118,7 @@ int sof_stream_pcm_open(struct snd_soc_component *component,
 }
 EXPORT_SYMBOL(sof_stream_pcm_open);
 
-int sof_stream_pcm_close(struct snd_soc_component *component,
+int sof_stream_pcm_close(struct snd_sof_dev *sdev,
 			 struct snd_pcm_substream *substream)
 {
 	struct sof_stream *stream = substream->runtime->private_data;
