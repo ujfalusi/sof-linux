@@ -424,7 +424,7 @@ int sof_cnl_ops_init(struct snd_sof_dev *sdev)
 	}
 
 	/* set DAI driver ops */
-	hda_set_dai_drv_ops(sdev);
+	hda_set_dai_drv_ops(sdev, &sof_cnl_ops);
 
 	/* debug */
 	sof_cnl_ops.debug_map	= cnl_dsp_debugfs;
