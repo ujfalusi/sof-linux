@@ -170,6 +170,10 @@ int hda_dsp_compr_hw_params(struct snd_sof_dev *sdev,
 	/* Use correct format based on the used codec */
 	switch (params->codec.id) {
 	case SND_AUDIOCODEC_PCM:
+		if (params->codec.format == SNDRV_PCM_FORMAT_S24_3LE) {
+			dev_err(sdev->dev, "%s: S24_3LE is not supported\n", __func__);
+			return -EINVAL;
+		}
 		bps = snd_pcm_format_physical_width((snd_pcm_format_t)params->codec.format);
 		break;
 	case SND_AUDIOCODEC_VORBIS:
