@@ -199,6 +199,9 @@ struct snd_soc_component_driver {
 	const char *topology_name_prefix;
 	int (*be_hw_params_fixup)(struct snd_soc_pcm_runtime *rtd,
 				  struct snd_pcm_hw_params *params);
+	int (*be_hw_params_fixup_stream)(struct snd_soc_pcm_runtime *rtd,
+					 struct snd_pcm_hw_params *params,
+					 int stream);
 	bool use_dai_pcm_id;	/* use DAI link PCM ID as PCM device number */
 	int be_pcm_base;	/* base device ID for all BE PCMs */
 
