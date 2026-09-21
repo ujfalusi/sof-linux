@@ -2127,7 +2127,7 @@ int dpcm_be_dai_hw_params(struct snd_soc_pcm_runtime *fe, int stream)
 				sizeof(struct snd_pcm_hw_params));
 
 		/* perform any hw_params fixups */
-		ret = snd_soc_link_be_hw_params_fixup(be, &hw_params);
+		ret = snd_soc_link_be_hw_params_fixup(be, &hw_params, stream);
 		if (ret < 0)
 			goto unwind;
 

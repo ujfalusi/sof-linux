@@ -11,7 +11,8 @@
 int snd_soc_link_init(struct snd_soc_pcm_runtime *rtd);
 void snd_soc_link_exit(struct snd_soc_pcm_runtime *rtd);
 int snd_soc_link_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
-				    struct snd_pcm_hw_params *params);
+				    struct snd_pcm_hw_params *params,
+				    int stream);
 
 int snd_soc_link_startup(struct snd_pcm_substream *substream);
 void snd_soc_link_shutdown(struct snd_pcm_substream *substream,
