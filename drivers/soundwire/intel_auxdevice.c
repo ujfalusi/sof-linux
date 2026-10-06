@@ -650,6 +650,17 @@ static int __maybe_unused intel_suspend(struct device *dev)
 		return 0;
 	}
 
+	/*
+	 * Keep the bus running if it carries a stream which is kept running
+	 * during the system suspend.
+	 */
+	sdw->suspend_bus_retained = sdw_bus_ignore_suspend(bus);
+	if (sdw->suspend_bus_retained) {
+		dev_dbg(dev, "SoundWire master %d is kept active during system suspend\n",
+			bus->link_id);
+		return 0;
+	}
+
 	/* Prevent runtime PM from racing with the code below. */
 	pm_runtime_disable(dev);
 
@@ -733,6 +744,13 @@ static int __maybe_unused intel_resume(struct device *dev)
 
 	if (bus->prop.hw_disabled || !sdw->startup_done) {
 		dev_dbg(dev, "SoundWire master %d is disabled or not-started, ignoring\n",
+			bus->link_id);
+		return 0;
+	}
+
+	if (sdw->suspend_bus_retained) {
+		sdw->suspend_bus_retained = false;
+		dev_dbg(dev, "SoundWire master %d remained active during system suspend\n",
 			bus->link_id);
 		return 0;
 	}

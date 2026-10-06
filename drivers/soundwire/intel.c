@@ -954,9 +954,15 @@ static int intel_component_dais_suspend(struct snd_soc_component *component)
 		struct sdw_cdns_dai_runtime *dai_runtime;
 
 		dai_runtime = cdns->dai_runtime_array[dai->id];
+		if (!dai_runtime)
+			continue;
 
-		if (dai_runtime)
-			dai_runtime->suspended = true;
+		/* the stream is kept running during the system suspend */
+		if (dai_runtime->stream && dai_runtime->stream->ignore_suspend &&
+		    dai_runtime->stream->state == SDW_STREAM_ENABLED)
+			continue;
+
+		dai_runtime->suspended = true;
 	}
 
 	return 0;
