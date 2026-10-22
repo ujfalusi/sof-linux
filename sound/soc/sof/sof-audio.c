@@ -9,6 +9,7 @@
 //
 
 #include <linux/bitfield.h>
+#include <linux/cleanup.h>
 #include <trace/events/sof.h>
 #include "sof-audio.h"
 #include "sof-utils.h"
@@ -475,6 +476,85 @@ sink_unprepare:
 	}
 }
 
+/*
+ * Return the output pin of @swidget feeding @sink: 0 for widgets with a single
+ * output pin, the pin bound to @sink in topology otherwise, or
+ * SOF_OUTPUT_PIN_UNKNOWN if bindings are absent. Invalid connections return an error.
+ */
+static int sof_widget_get_output_pin(struct snd_sof_widget *swidget,
+				     struct snd_soc_dapm_widget *sink)
+{
+	int i;
+
+	if (!swidget->num_output_pins) {
+		dev_err(swidget->scomp->dev, "%s: connection to %s without output pins\n",
+			swidget->widget->name, sink->name);
+		return -EINVAL;
+	}
+
+	if (swidget->num_output_pins == 1)
+		return 0;
+
+	if (!swidget->output_pin_binding)
+		return SOF_OUTPUT_PIN_UNKNOWN;
+
+	for (i = 0; i < swidget->num_output_pins; i++) {
+		if (!strcmp(swidget->output_pin_binding[i], sink->name))
+			return i;
+	}
+
+	dev_err(swidget->scomp->dev, "%s: no output pin binding for %s\n",
+		swidget->widget->name, sink->name);
+	return -EINVAL;
+}
+
+static int sof_prepare_widget_for_sink(struct snd_sof_widget *swidget,
+				       const struct sof_ipc_tplg_widget_ops *widget_ops,
+				       struct snd_soc_dapm_widget *sink,
+				       struct snd_pcm_hw_params *fe_params,
+				       struct snd_sof_platform_stream_params *platform_params,
+				       struct snd_pcm_hw_params *pipeline_params, int dir)
+{
+	struct snd_soc_dapm_widget *widget;
+	int out_pin = SOF_OUTPUT_PIN_NONE;
+	int ret;
+
+	if (!swidget || !widget_ops)
+		return 0;
+
+	widget = swidget->widget;
+	if (!widget_ops[widget->id].ipc_prepare || is_aggregated_dai(swidget))
+		return 0;
+
+	if (sink) {
+		out_pin = sof_widget_get_output_pin(swidget, sink);
+		if (out_pin < 0 && out_pin != SOF_OUTPUT_PIN_UNKNOWN)
+			return out_pin;
+	}
+
+	ret = widget_ops[widget->id].ipc_prepare(swidget, fe_params, platform_params,
+					       pipeline_params, dir, out_pin);
+	if (ret < 0) {
+		dev_err(swidget->scomp->dev, "failed to prepare widget %s\n", widget->name);
+		return ret;
+	}
+
+	swidget->prepared = true;
+	return 0;
+}
+
+/*
+ * Check if the prepare walk continues to the sink of @p: a SOF widget of the PCM
+ * which is not walked already. Virtual widgets are not connected in the firmware,
+ * the walk does not continue to them.
+ */
+static bool sof_prepare_walks_to_sink(struct snd_sof_dev *sdev, struct snd_soc_dapm_path *p,
+				      struct snd_soc_dapm_widget_list *list)
+{
+	return widget_in_list(list, p->sink) && !p->walking && p->sink->dobj.private &&
+	       !is_virtual_widget(sdev, p->sink, __func__);
+}
+
 static int
 sof_prepare_widgets_in_path(struct snd_sof_dev *sdev, struct snd_soc_dapm_widget *widget,
 			    struct snd_pcm_hw_params *fe_params,
@@ -484,8 +564,11 @@ sof_prepare_widgets_in_path(struct snd_sof_dev *sdev, struct snd_soc_dapm_widget
 {
 	const struct sof_ipc_tplg_ops *tplg_ops = sof_ipc_get_ops(sdev, tplg);
 	struct snd_sof_widget *swidget = widget->dobj.private;
-	const struct sof_ipc_tplg_widget_ops *widget_ops;
+	const struct sof_ipc_tplg_widget_ops *widget_ops = NULL;
+	struct snd_pcm_hw_params *branch_params __free(kfree) = NULL;
 	struct snd_soc_dapm_path *p;
+	bool found = false;
+	int num_sinks = 0;
 	int ret;
 
 	if (is_virtual_widget(sdev, widget, __func__))
@@ -502,45 +585,63 @@ sof_prepare_widgets_in_path(struct snd_sof_dev *sdev, struct snd_soc_dapm_widget
 	    !sof_widget_in_same_direction(swidget, dir))
 		return 0;
 
-	/* skip widgets aggregated DAI widgets */
-	if (!widget_ops[widget->id].ipc_prepare || is_aggregated_dai(swidget))
-		goto sink_prepare;
-
-	/* prepare the source widget */
-	ret = widget_ops[widget->id].ipc_prepare(swidget, fe_params, platform_params,
-					     pipeline_params, dir);
-	if (ret < 0) {
-		dev_err(sdev->dev, "failed to prepare widget %s\n", widget->name);
-		return ret;
+sink_prepare:
+	/*
+	 * Prepare and propagate for each connection. When the widget fans out to
+	 * multiple sinks each branch must start from the source's incoming params,
+	 * not the params modified by a previous branch.
+	 */
+	snd_soc_dapm_widget_for_each_sink_path(widget, p) {
+		if (sof_prepare_walks_to_sink(sdev, p, list))
+			num_sinks++;
 	}
 
-	swidget->prepared = true;
+	if (num_sinks > 1) {
+		branch_params = kmalloc_obj(*branch_params);
+		if (!branch_params)
+			return -ENOMEM;
+	}
 
-sink_prepare:
-	/* prepare all widgets in the sink paths */
 	snd_soc_dapm_widget_for_each_sink_path(widget, p) {
-		if (!widget_in_list(list, p->sink))
+		struct snd_pcm_hw_params *params = pipeline_params;
+
+		if (!sof_prepare_walks_to_sink(sdev, p, list))
 			continue;
 
-		if (!p->walking && p->sink->dobj.private) {
-			p->walking = true;
-			ret = sof_prepare_widgets_in_path(sdev, p->sink,  fe_params,
-							  platform_params, pipeline_params, dir,
-							  list);
-			p->walking = false;
-			if (ret < 0) {
-				/* unprepare the source widget */
-				if (widget_ops[widget->id].ipc_unprepare &&
-				    swidget && swidget->prepared && swidget->use_count == 0) {
-					widget_ops[widget->id].ipc_unprepare(swidget);
-					swidget->prepared = false;
-				}
-				return ret;
-			}
+		if (branch_params) {
+			*branch_params = *pipeline_params;
+			params = branch_params;
 		}
+
+		found = true;
+		ret = sof_prepare_widget_for_sink(swidget, widget_ops, p->sink,
+						  fe_params, platform_params,
+						  params, dir);
+		if (ret < 0)
+			goto unprepare;
+
+		p->walking = true;
+		ret = sof_prepare_widgets_in_path(sdev, p->sink, fe_params,
+						  platform_params, params, dir,
+						  list);
+		p->walking = false;
+		if (ret < 0)
+			goto unprepare;
 	}
 
+	if (!found)
+		return sof_prepare_widget_for_sink(swidget, widget_ops, NULL, fe_params,
+						   platform_params, pipeline_params, dir);
+
 	return 0;
+
+unprepare:
+	if (widget_ops && widget_ops[widget->id].ipc_unprepare &&
+	    swidget && swidget->prepared && swidget->use_count == 0) {
+		widget_ops[widget->id].ipc_unprepare(swidget);
+		swidget->prepared = false;
+	}
+	return ret;
 }
 
 /*
