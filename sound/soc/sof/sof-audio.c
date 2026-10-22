@@ -475,6 +475,57 @@ sink_unprepare:
 	}
 }
 
+/*
+ * Return the output pin of @swidget feeding @sink: 0 for widgets with a single
+ * output pin, the pin bound to @sink in topology otherwise, or -1 if unknown.
+ */
+static int sof_widget_get_output_pin(struct snd_sof_widget *swidget,
+				     struct snd_soc_dapm_widget *sink)
+{
+	int i;
+
+	if (swidget->num_output_pins <= 1)
+		return 0;
+
+	if (!swidget->output_pin_binding)
+		return -1;
+
+	for (i = 0; i < swidget->num_output_pins; i++) {
+		if (!strcmp(swidget->output_pin_binding[i], sink->name))
+			return i;
+	}
+
+	return -1;
+}
+
+/*
+ * Return the output pin of @swidget feeding the sinks in @list, or -1 if it
+ * cannot be determined or the sinks are connected to different pins.
+ */
+static int sof_widget_get_path_output_pin(struct snd_sof_widget *swidget,
+					  struct snd_soc_dapm_widget_list *list)
+{
+	struct snd_soc_dapm_path *p;
+	int out_pin = -1;
+	bool found = false;
+
+	snd_soc_dapm_widget_for_each_sink_path(swidget->widget, p) {
+		int pin;
+
+		if (!widget_in_list(list, p->sink) || !p->sink->dobj.private)
+			continue;
+
+		pin = sof_widget_get_output_pin(swidget, p->sink);
+		if (found && pin != out_pin)
+			return -1;
+
+		out_pin = pin;
+		found = true;
+	}
+
+	return out_pin;
+}
+
 static int
 sof_prepare_widgets_in_path(struct snd_sof_dev *sdev, struct snd_soc_dapm_widget *widget,
 			    struct snd_pcm_hw_params *fe_params,
@@ -508,7 +559,8 @@ sof_prepare_widgets_in_path(struct snd_sof_dev *sdev, struct snd_soc_dapm_widget
 
 	/* prepare the source widget */
 	ret = widget_ops[widget->id].ipc_prepare(swidget, fe_params, platform_params,
-					     pipeline_params, dir);
+					     pipeline_params, dir,
+					     sof_widget_get_path_output_pin(swidget, list));
 	if (ret < 0) {
 		dev_err(sdev->dev, "failed to prepare widget %s\n", widget->name);
 		return ret;
