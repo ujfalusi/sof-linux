@@ -3056,13 +3056,15 @@ static int sof_ipc4_process_add_base_cfg_extn(struct snd_sof_widget *swidget)
 /*
  * Look up the output format of a process module for the path being prepared.
  * @in_fmt is the selected input format, NULL for modules without input formats.
+ * @out_pin is the output pin feeding the path, -1 if unknown.
  */
 static int sof_ipc4_process_output_fmt(struct snd_sof_dev *sdev,
 				       struct snd_sof_widget *swidget,
 				       struct sof_ipc4_base_module_cfg *base_config,
 				       struct sof_ipc4_available_audio_format *available_fmt,
 				       struct sof_ipc4_audio_format *in_fmt,
-				       struct snd_pcm_hw_params *fe_params, int dir)
+				       struct snd_pcm_hw_params *fe_params, int dir,
+				       int out_pin)
 {
 	u32 ref_rate, ref_channels;
 	int ref_valid_bits, ref_type;
@@ -3116,8 +3118,12 @@ static int sof_ipc4_process_output_fmt(struct snd_sof_dev *sdev,
 		}
 	}
 
-	return sof_ipc4_init_output_audio_fmt(sdev, swidget, base_config, available_fmt, -1,
-					      ref_rate, ref_channels, ref_valid_bits,
+	/* only use the formats of the pin feeding the path on multi-output modules */
+	if (out_pin < 0 || swidget->num_output_pins <= 1)
+		out_pin = -1;
+
+	return sof_ipc4_init_output_audio_fmt(sdev, swidget, base_config, available_fmt,
+					      out_pin, ref_rate, ref_channels, ref_valid_bits,
 					      ref_type);
 }
 
@@ -3148,7 +3154,7 @@ static int sof_ipc4_prepare_process_module(struct snd_sof_widget *swidget,
 			/* a multi-output module can be shared by paths using different pins */
 			output_fmt_index = sof_ipc4_process_output_fmt(sdev, swidget, &scratch,
 								       available_fmt, in_fmt,
-								       fe_params, dir);
+								       fe_params, dir, out_pin);
 			if (output_fmt_index < 0)
 				return output_fmt_index;
 
@@ -3179,7 +3185,7 @@ static int sof_ipc4_prepare_process_module(struct snd_sof_widget *swidget,
 		output_fmt_index = sof_ipc4_process_output_fmt(sdev, swidget,
 							       &process->base_config,
 							       available_fmt, in_fmt,
-							       fe_params, dir);
+							       fe_params, dir, out_pin);
 		if (output_fmt_index < 0)
 			return output_fmt_index;
 
