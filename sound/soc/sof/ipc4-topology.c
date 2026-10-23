@@ -1297,6 +1297,38 @@ static void sof_ipc4_widget_free_comp_mixer(struct snd_sof_widget *swidget)
 /*
  * Add the process modules support. The process modules are defined as snd_soc_dapm_effect modules.
  */
+/*
+ * The formats of the pins of a module are fixed when the module is initialized,
+ * there is no message to change them afterwards. On a side with multiple pins the
+ * module can be initialized via a path using any of the pins, the formats of the
+ * other pins can only be known if they have a single format.
+ */
+static void sof_ipc4_process_check_pin_formats(struct snd_sof_widget *swidget,
+					       struct sof_ipc4_pin_format *pin_fmts,
+					       u32 num_fmts, int num_pins, bool output)
+{
+	struct snd_soc_component *scomp = swidget->scomp;
+	int pin, i;
+
+	if (num_pins <= 1)
+		return;
+
+	for (pin = 0; pin < num_pins; pin++) {
+		int count = 0;
+
+		for (i = 0; i < num_fmts; i++) {
+			if (pin_fmts[i].pin_index == pin)
+				count++;
+		}
+
+		if (count > 1)
+			dev_warn(scomp->dev,
+				 "%s: %s pin %d has %d formats, a single format is expected with %d %s pins\n",
+				 swidget->widget->name, output ? "output" : "input", pin,
+				 count, num_pins, output ? "output" : "input");
+	}
+}
+
 static int sof_ipc4_widget_setup_comp_process(struct snd_sof_widget *swidget)
 {
 	struct snd_soc_component *scomp = swidget->scomp;
@@ -1316,6 +1348,13 @@ static int sof_ipc4_widget_setup_comp_process(struct snd_sof_widget *swidget)
 				     &process->base_config);
 	if (ret)
 		goto err;
+
+	sof_ipc4_process_check_pin_formats(swidget, process->available_fmt.input_pin_fmts,
+					   process->available_fmt.num_input_formats,
+					   swidget->num_input_pins, false);
+	sof_ipc4_process_check_pin_formats(swidget, process->available_fmt.output_pin_fmts,
+					   process->available_fmt.num_output_formats,
+					   swidget->num_output_pins, true);
 
 	ret = sof_ipc4_widget_setup_msg(swidget, &process->msg);
 	if (ret)
