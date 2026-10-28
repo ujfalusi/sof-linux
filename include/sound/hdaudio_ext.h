@@ -11,13 +11,6 @@ int snd_hdac_ext_bus_init(struct hdac_bus *bus, struct device *dev,
 void snd_hdac_ext_bus_exit(struct hdac_bus *bus);
 void snd_hdac_ext_bus_device_remove(struct hdac_bus *bus);
 
-#define HDA_CODEC_REV_EXT_ENTRY(_vid, _rev, _name, drv_data) \
-	{ .vendor_id = (_vid), .rev_id = (_rev), .name = (_name), \
-	  .api_version = HDA_DEV_ASOC, \
-	  .driver_data = (unsigned long)(drv_data) }
-#define HDA_CODEC_EXT_ENTRY(_vid, _revid, _name, _drv_data) \
-	HDA_CODEC_REV_EXT_ENTRY(_vid, _revid, _name, _drv_data)
-
 void snd_hdac_ext_bus_ppcap_enable(struct hdac_bus *chip, bool enable);
 void snd_hdac_ext_bus_ppcap_int_enable(struct hdac_bus *chip, bool enable);
 
@@ -142,8 +135,5 @@ struct hdac_ext_dma_params {
 	u32 format;
 	u8 stream_tag;
 };
-
-int snd_hda_ext_driver_register(struct hdac_driver *drv);
-void snd_hda_ext_driver_unregister(struct hdac_driver *drv);
 
 #endif /* __SOUND_HDAUDIO_EXT_H */
