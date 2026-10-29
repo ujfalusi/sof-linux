@@ -255,7 +255,10 @@ static u32 sof_ipc4_fmt_cfg_to_type(u32 fmt_cfg)
 	return SOF_IPC4_TYPE_LSB_INTEGER;
 }
 
-/* Check if @a and @b have the same rate, channel count and valid bit depth */
+/*
+ * Check if @a and @b are the same format: the rate, channel count, valid bit depth
+ * and sample type are compared, like when a format is matched against the params.
+ */
 static bool sof_ipc4_is_same_fmt(const struct sof_ipc4_audio_format *a,
 				 const struct sof_ipc4_audio_format *b)
 {
@@ -263,7 +266,8 @@ static bool sof_ipc4_is_same_fmt(const struct sof_ipc4_audio_format *a,
 	       SOF_IPC4_AUDIO_FORMAT_CFG_CHANNELS_COUNT(a->fmt_cfg) ==
 	       SOF_IPC4_AUDIO_FORMAT_CFG_CHANNELS_COUNT(b->fmt_cfg) &&
 	       SOF_IPC4_AUDIO_FORMAT_CFG_V_BIT_DEPTH(a->fmt_cfg) ==
-	       SOF_IPC4_AUDIO_FORMAT_CFG_V_BIT_DEPTH(b->fmt_cfg);
+	       SOF_IPC4_AUDIO_FORMAT_CFG_V_BIT_DEPTH(b->fmt_cfg) &&
+	       sof_ipc4_fmt_cfg_to_type(a->fmt_cfg) == sof_ipc4_fmt_cfg_to_type(b->fmt_cfg);
 }
 
 /* Check if @pin_fmt belongs to @pin, a negative @pin matches all pins */
