@@ -37,6 +37,10 @@ static int class_read_prop(struct sdw_slave *sdw)
 	prop->scp_int1_mask = SDW_SCP_INT1_BUS_CLASH | SDW_SCP_INT1_PARITY |
 			      SDW_SCP_INT1_IMPL_DEF;
 
+	/* HACK: CS42L45 never clears ClockStopNotFinished, skip the wait */
+	if (sdw->id.mfg_id == 0x01fa && sdw->id.part_id == 0x4245)
+		prop->simple_clk_stop_capable = true;
+
 	return 0;
 }
 
