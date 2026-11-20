@@ -484,7 +484,6 @@ The connection sequence is::
           copy identity and name storage
           snd_soc_usb_connect(SOF device, &record->sdev)
             append to available_devices
-            auto-select missing direction routes
             notify control INFO / VALUE changes
           report SND_JACK_USB
 
@@ -542,16 +541,14 @@ first backend to acquire it gets it and the second fails ``hw_params`` with
 routes is therefore a plain sequence of two writes, through an intermediate
 state where both routes point at the same device.
 
-When a device connects, ASoC USB walks the routes of each direction in
-order. A route with no selection gets its default: the first available pair
-no other route of the direction has, or, when every pair is taken, the first
-available pair at all. A route that duplicates another route's pair holds
-nothing of its own, so it is moved to a pair of the new device no route has
-yet, unless a stream is set up on its backend. A route pointing at a pair of
-its own is never changed by a connect. With two backends per direction, one
-connected device offering one PCM pair puts both routes on it; when a second
-device, or a second PCM of the first, appears, route 1 moves to it. Playback
-and capture routes are independent of each other.
+A route nothing was picked for follows its default, which ASoC USB works out
+whenever the route is queried: route N gets the Nth available pair of its
+direction, wrapping around when there are fewer pairs than routes. A pick,
+by a write to the control, overrides it until the device goes away. With two
+backends per direction, one connected device offering one PCM pair puts both
+routes on it; when a second device, or a second PCM of the first, appears,
+route 1 follows to it, unless it was picked. Playback and capture routes are
+independent of each other.
 
 When no pair is available, the control has one item, ``None``, and reads as
 item zero. ``None`` only marks an empty list. Once devices are available it
