@@ -496,6 +496,12 @@ static struct usb_device *hda_uaol_selected(struct sof_intel_hda_dev *hdev,
  */
 #define SOF_UAOL_FIFO_INTERVALS		2
 
+static const int uaol_params[] = {
+	SNDRV_PCM_HW_PARAM_RATE,
+	SNDRV_PCM_HW_PARAM_CHANNELS,
+	SNDRV_PCM_HW_PARAM_FORMAT,
+};
+
 /*
  * The gateway is programmed with the valid bits of the format and the link
  * packs the samples to that width on the wire, so the container is not what
@@ -642,7 +648,7 @@ static void hda_uaol_set_fifo_constraint(struct snd_sof_dev *sdev,
  * negotiation.
  */
 static int uaol_rule_device(struct snd_pcm_hw_params *params,
-			    struct snd_pcm_hw_rule *rule, int var)
+			    struct snd_pcm_hw_rule *rule)
 {
 	struct hda_uaol_stream *stream = rule->private;
 	struct sof_intel_hda_dev *hdev = stream->hdev;
@@ -654,25 +660,7 @@ static int uaol_rule_device(struct snd_pcm_hw_params *params,
 		return 0;
 
 	return usb_offload_refine_hw_params(hdev->uaol, udev, stream->direction,
-					    pcm_index, var, params);
-}
-
-static int uaol_rule_device_rate(struct snd_pcm_hw_params *params,
-				 struct snd_pcm_hw_rule *rule)
-{
-	return uaol_rule_device(params, rule, SNDRV_PCM_HW_PARAM_RATE);
-}
-
-static int uaol_rule_device_channels(struct snd_pcm_hw_params *params,
-				     struct snd_pcm_hw_rule *rule)
-{
-	return uaol_rule_device(params, rule, SNDRV_PCM_HW_PARAM_CHANNELS);
-}
-
-static int uaol_rule_device_format(struct snd_pcm_hw_params *params,
-				   struct snd_pcm_hw_rule *rule)
-{
-	return uaol_rule_device(params, rule, SNDRV_PCM_HW_PARAM_FORMAT);
+					    pcm_index, rule->var, params);
 }
 
 /*
@@ -685,52 +673,34 @@ static int uaol_rule_device_format(struct snd_pcm_hw_params *params,
  * What the first frontend opened the backend with is only known once its
  * hw_params ran, hence rules and not plain constraints.
  */
-static int uaol_rule_shared_rate(struct snd_pcm_hw_params *params,
-				 struct snd_pcm_hw_rule *rule)
+static int uaol_rule_shared(struct snd_pcm_hw_params *params,
+			    struct snd_pcm_hw_rule *rule)
 {
 	struct hda_uaol_stream *stream = rule->private;
 	struct snd_interval t = { .integer = 1 };
-
-	/* pairs with the release which publishes the first frontend's parameters */
-	if (!smp_load_acquire(&stream->params_valid))
-		return 0;
-
-	t.min = stream->rate;
-	t.max = stream->rate;
-
-	return snd_interval_refine(hw_param_interval(params, SNDRV_PCM_HW_PARAM_RATE), &t);
-}
-
-static int uaol_rule_shared_channels(struct snd_pcm_hw_params *params,
-				     struct snd_pcm_hw_rule *rule)
-{
-	struct hda_uaol_stream *stream = rule->private;
-	struct snd_interval t = { .integer = 1 };
-
-	/* pairs with the release which publishes the first frontend's parameters */
-	if (!smp_load_acquire(&stream->params_valid))
-		return 0;
-
-	t.min = stream->channels;
-	t.max = stream->channels;
-
-	return snd_interval_refine(hw_param_interval(params, SNDRV_PCM_HW_PARAM_CHANNELS), &t);
-}
-
-static int uaol_rule_shared_format(struct snd_pcm_hw_params *params,
-				   struct snd_pcm_hw_rule *rule)
-{
-	struct hda_uaol_stream *stream = rule->private;
 	struct snd_mask m;
 
 	/* pairs with the release which publishes the first frontend's parameters */
 	if (!smp_load_acquire(&stream->params_valid))
 		return 0;
 
-	snd_mask_none(&m);
-	snd_mask_set_format(&m, stream->format);
+	switch (rule->var) {
+	case SNDRV_PCM_HW_PARAM_RATE:
+		t.min = stream->rate;
+		t.max = stream->rate;
+		break;
+	case SNDRV_PCM_HW_PARAM_CHANNELS:
+		t.min = stream->channels;
+		t.max = stream->channels;
+		break;
+	default:
+		snd_mask_none(&m);
+		snd_mask_set_format(&m, stream->format);
 
-	return snd_mask_refine(hw_param_mask(params, SNDRV_PCM_HW_PARAM_FORMAT), &m);
+		return snd_mask_refine(hw_param_mask(params, rule->var), &m);
+	}
+
+	return snd_interval_refine(hw_param_interval(params, rule->var), &t);
 }
 
 /*
@@ -755,6 +725,7 @@ static void hda_uaol_set_constraint(struct snd_sof_dev *sdev,
 	struct sof_intel_hda_dev *hdev = sdev->pdata->hw_pdata;
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct hda_uaol_stream *ctx;
+	int i;
 
 	hda_uaol_set_fifo_constraint(sdev, be_dai, substream);
 
@@ -765,25 +736,14 @@ static void hda_uaol_set_constraint(struct snd_sof_dev *sdev,
 	if (!ctx)
 		return;
 
-	snd_pcm_hw_rule_add(runtime, 0, SNDRV_PCM_HW_PARAM_RATE,
-			    uaol_rule_device_rate, ctx,
-			    SNDRV_PCM_HW_PARAM_RATE, SNDRV_PCM_HW_PARAM_CHANNELS,
-			    SNDRV_PCM_HW_PARAM_FORMAT, -1);
-	snd_pcm_hw_rule_add(runtime, 0, SNDRV_PCM_HW_PARAM_CHANNELS,
-			    uaol_rule_device_channels, ctx,
-			    SNDRV_PCM_HW_PARAM_CHANNELS, SNDRV_PCM_HW_PARAM_RATE,
-			    SNDRV_PCM_HW_PARAM_FORMAT, -1);
-	snd_pcm_hw_rule_add(runtime, 0, SNDRV_PCM_HW_PARAM_FORMAT,
-			    uaol_rule_device_format, ctx,
-			    SNDRV_PCM_HW_PARAM_FORMAT, SNDRV_PCM_HW_PARAM_RATE,
-			    SNDRV_PCM_HW_PARAM_CHANNELS, -1);
-
-	snd_pcm_hw_rule_add(runtime, 0, SNDRV_PCM_HW_PARAM_RATE,
-			    uaol_rule_shared_rate, ctx, SNDRV_PCM_HW_PARAM_RATE, -1);
-	snd_pcm_hw_rule_add(runtime, 0, SNDRV_PCM_HW_PARAM_CHANNELS,
-			    uaol_rule_shared_channels, ctx, SNDRV_PCM_HW_PARAM_CHANNELS, -1);
-	snd_pcm_hw_rule_add(runtime, 0, SNDRV_PCM_HW_PARAM_FORMAT,
-			    uaol_rule_shared_format, ctx, SNDRV_PCM_HW_PARAM_FORMAT, -1);
+	for (i = 0; i < ARRAY_SIZE(uaol_params); i++) {
+		/* what each of the three can be depends on all of them */
+		snd_pcm_hw_rule_add(runtime, 0, uaol_params[i], uaol_rule_device, ctx,
+				    SNDRV_PCM_HW_PARAM_RATE, SNDRV_PCM_HW_PARAM_CHANNELS,
+				    SNDRV_PCM_HW_PARAM_FORMAT, -1);
+		snd_pcm_hw_rule_add(runtime, 0, uaol_params[i], uaol_rule_shared, ctx,
+				    uaol_params[i], -1);
+	}
 }
 
 static u32 uaol_ep_info(const struct usb_offload_stream_hw *hw,
