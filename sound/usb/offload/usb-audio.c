@@ -59,23 +59,27 @@ MODULE_PARM_DESC(allow_feedback,
 		 "Offload asynchronous playback streams also when the host keeps them (default: 0)");
 
 /*
+ * An OUT endpoint with implicit feedback is clocked by a capture data endpoint
+ * the DSP cannot use, and the hardware has no way to follow it: that stream
+ * would run blind. It always stays on the host. A quirk can give an endpoint
+ * which is not declared asynchronous implicit feedback, so that is checked
+ * for on its own.
+ *
  * An asynchronous OUT endpoint runs off the device's own clock and needs a
  * feedback source for the sender to follow it. A host whose DSP applies that
  * feedback in a way which degrades the audio keeps such streams to itself
- * (usb_offload_res.async_playback_on_host), unless allowed for testing. This
- * also covers implicit feedback, whose sync source is a capture data endpoint
- * the DSP cannot use: that stream would run blind. A quirk can give an
- * endpoint which is not declared asynchronous implicit feedback, so that is
- * checked for on its own.
+ * (usb_offload_res.async_playback_on_host), unless allowed for testing.
  */
 static bool usb_offload_playback_kept(const struct usb_offload_ctx *ctx,
 				      const struct audioformat *fp)
 {
+	if (fp->implicit_fb)
+		return true;
+
 	if (!ctx->async_playback_on_host || allow_feedback)
 		return false;
 
-	return fp->implicit_fb ||
-	       (fp->ep_attr & USB_ENDPOINT_SYNCTYPE) == USB_ENDPOINT_SYNC_ASYNC;
+	return (fp->ep_attr & USB_ENDPOINT_SYNCTYPE) == USB_ENDPOINT_SYNC_ASYNC;
 }
 
 /*
