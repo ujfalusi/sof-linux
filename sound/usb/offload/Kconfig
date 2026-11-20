@@ -11,7 +11,7 @@ config SND_USB_OFFLOAD
 	  DSP on demand.
 
 	  Device ownership stays with snd-usb-audio: the library hooks the
-	  USB-SND platform-op callbacks to run a UAC candidate filter and
+	  USB-SND platform-op callbacks to pick the PCMs it can offload and
 	  forward offloadable devices to the registered host.
 
 	  The data path is built on the xHCI Audio Sideband: the library

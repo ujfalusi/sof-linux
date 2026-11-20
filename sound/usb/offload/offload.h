@@ -34,22 +34,10 @@ int  usb_offload_resource_range(struct usb_offload_ctx *ctx, int direction,
  * Candidate filter + USB-audio device ownership (usb-audio.c)
  *
  * No dedicated USB driver claims the device: snd-usb-audio keeps
- * ownership and notifies us via snd_usb_platform_ops. We run a strict
- * UAC descriptor filter and bridge the hotplug event into the library for
+ * ownership and notifies us via snd_usb_platform_ops. We check the
+ * PCMs it has set up and bridge the hotplug event into the library for
  * offloadable devices.
  */
-
-/**
- * struct usb_offload_candidate - parsed offload description of a UAC device.
- * @ac_ifnum:		audio-control interface number.
- * @uac_version:	UAC_VERSION_1 / _2 / _3.
- * @num_eps:		data and feedback endpoints across all streaming ifaces.
- */
-struct usb_offload_candidate {
-	u8				ac_ifnum;
-	u8				uac_version;
-	u8				num_eps;
-};
 
 /*
  * USB hotplug bridge: how the usb-audio side hands a device to the library,

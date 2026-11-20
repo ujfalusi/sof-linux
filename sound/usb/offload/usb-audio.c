@@ -4,7 +4,7 @@
  *
  * snd-usb-audio stays in charge of the device. This file hooks the
  * snd_usb_platform_ops connect/disconnect notifications of the usb-audio
- * core (sound/usb/card.c), runs a UAC descriptor filter to decide
+ * core (sound/usb/card.c), checks the device and the PCMs usb-audio set up to decide
  * whether a device can be offloaded, and for the candidates it bridges the
  * hotplug event into the library via usb_offload_connect() /
  * usb_offload_disconnect().
@@ -133,247 +133,28 @@ static bool usb_offload_subs_offloadable(const struct usb_offload_ctx *ctx,
 /*
  * Candidate filter
  *
- * Walks the audio-control interface and checks each streaming interface's
- * data + feedback endpoints. All-or-nothing: any malformed descriptor makes
- * the whole device a non-candidate.
+ * snd-usb-audio has parsed the descriptors by the time the connect callback
+ * runs and left the result in chip->pcm_list, with the malformed and the
+ * unsupported streams already left out. All that is left to decide here is
+ * whether the device itself can be offloaded; which of its PCMs can is up to
+ * usb_offload_ua_build_id().
  */
-
-/* Common 3-byte header shared by all class-specific AC descriptors. */
-struct usb_offload_cs_hdr {
-	__u8	bLength;
-	__u8	bDescriptorType;
-	__u8	bDescriptorSubtype;
-} __packed;
-
-/* Endpoint usage bits (bmAttributes), see USB_ENDPOINT_USAGE_* in ch9.h. */
-static inline int usb_offload_ep_usage(const struct usb_endpoint_descriptor *epd)
+static bool usb_offload_chip_is_candidate(struct snd_usb_audio *chip)
 {
-	return epd->bmAttributes & USB_ENDPOINT_USAGE_MASK;
-}
-
-/*
- * Check the data (and optional feedback) endpoint of one interface of the
- * audio function and count them in @cand. Returns 0 (also when the interface
- * is not a streaming one, like MIDI, or has no streaming altsetting) or a
- * negative errno on a malformed descriptor.
- */
-static int usb_offload_check_iface_eps(struct usb_interface *iface,
-				       struct usb_offload_candidate *cand)
-{
-	struct usb_interface_descriptor *altd;
-	struct usb_endpoint_descriptor *epd;
-	struct usb_host_interface *alt;
-	int i;
-
-	altd = &iface->altsetting[0].desc;
-	if (altd->bInterfaceClass != USB_CLASS_AUDIO ||
-	    altd->bInterfaceSubClass != USB_SUBCLASS_AUDIOSTREAMING)
-		return 0;
-
-	/* Find the first altsetting that actually has endpoints. */
-	for (i = 0; i < iface->num_altsetting; i++) {
-		alt  = &iface->altsetting[i];
-		altd = &alt->desc;
-
-		if (altd->bInterfaceClass != USB_CLASS_AUDIO ||
-		    altd->bInterfaceSubClass != USB_SUBCLASS_AUDIOSTREAMING ||
-		    altd->bNumEndpoints > 2)
-			return -EINVAL;
-		if (altd->bNumEndpoints)
-			break;
-	}
-	if (i == iface->num_altsetting)
-		return 0;	/* no streaming altsetting: nothing to offload */
-
-	/* endpoint[0] is the data endpoint (mandatory, isochronous). */
-	epd = &alt->endpoint[0].desc;
-	if (usb_offload_ep_usage(epd) != USB_ENDPOINT_USAGE_DATA ||
-	    !usb_endpoint_maxp(epd) || !usb_endpoint_xfer_isoc(epd))
-		return -EINVAL;
-	cand->num_eps++;
-
-	/* endpoint[1], when present, must be an IN isochronous feedback ep. */
-	if (altd->bNumEndpoints == 2) {
-		epd = &alt->endpoint[1].desc;
-		if (usb_offload_ep_usage(epd) != USB_ENDPOINT_USAGE_FEEDBACK ||
-		    !usb_endpoint_maxp(epd) || !usb_endpoint_xfer_isoc(epd) ||
-		    usb_endpoint_dir_out(epd))
-			return -EINVAL;
-		cand->num_eps++;
-	}
-
-	return 0;
-}
-
-static void *usb_offload_uac1_find_ac_desc(struct usb_host_interface *iface,
-					   size_t desc_size, u8 type, u8 subtype)
-{
-	struct usb_offload_cs_hdr *hdr;
-	u8 *pos, *end;
-
-	pos = iface->extra;
-	end = pos + iface->extralen;
-
-	while (pos < end) {
-		hdr = (struct usb_offload_cs_hdr *)pos;
-		pos += hdr->bLength;
-
-		if (pos > end || hdr->bLength < sizeof(*hdr))
-			return NULL;
-
-		if (hdr->bLength >= desc_size &&
-		    hdr->bDescriptorType == type &&
-		    hdr->bDescriptorSubtype == subtype)
-			return hdr;
-	}
-
-	return NULL;
-}
-
-static int usb_offload_uac1_enum_endpoints(struct usb_device *udev,
-					   struct usb_interface *audctrl,
-					   struct usb_offload_candidate *cand)
-{
-	struct usb_host_interface *host_iface;
-	struct uac1_ac_header_descriptor *acd;
-	struct usb_interface *iface;
-	int tail_bytes;
-	int ifnum, i;
-	int ret;
-
-	host_iface = &audctrl->altsetting[0];
-	acd = usb_offload_uac1_find_ac_desc(host_iface, sizeof(*acd),
-					    USB_DT_CS_INTERFACE, UAC_HEADER);
-	if (!acd)
-		return -EINVAL;
-
-	tail_bytes = (void *)(host_iface->extra + host_iface->extralen) - (void *)acd;
-	if (tail_bytes < sizeof(*acd))
-		return -EINVAL;
-	if (!acd->bInCollection || tail_bytes < acd->bLength)
-		return -EINVAL;
-	if (acd->bLength < sizeof(*acd) + acd->bInCollection)
-		return -EINVAL;
-
-	for (i = 0; i < acd->bInCollection; i++) {
-		ifnum = acd->baInterfaceNr[i];
-		iface = usb_ifnum_to_if(udev, ifnum);
-		if (!iface)
-			return -EINVAL;
-
-		ret = usb_offload_check_iface_eps(iface, cand);
-		if (ret)
-			return ret;
-	}
-
-	return 0;
-}
-
-static int usb_offload_uac2_enum_endpoints(struct usb_device *udev,
-					   struct usb_interface *audctrl,
-					   struct usb_offload_candidate *cand)
-{
-	struct usb_interface_assoc_descriptor *assoc;
-	struct usb_interface *iface;
-	int ifnum, i;
-	int ret;
-
-	assoc = audctrl->intf_assoc;
-	/* At least one streaming interface besides the control one. */
-	if (!assoc || assoc->bInterfaceCount < 2)
-		return -EINVAL;
-
-	for (i = 0; i < assoc->bInterfaceCount; i++) {
-		ifnum = assoc->bFirstInterface + i;
-		iface = usb_ifnum_to_if(udev, ifnum);
-		if (!iface)
-			return -EINVAL;
-		if (iface == audctrl)
-			continue;
-
-		ret = usb_offload_check_iface_eps(iface, cand);
-		if (ret)
-			return ret;
-	}
-
-	return 0;
-}
-
-static struct usb_interface *
-usb_offload_find_audio_control(struct usb_device *udev,
-			       struct usb_interface_descriptor **altd_out)
-{
-	struct usb_host_config *config = udev->actconfig;
-	struct usb_interface_descriptor *altd;
-	struct usb_interface *iface;
-	int i;
-
-	if (!config)
-		return NULL;
-
-	for (i = 0; i < config->desc.bNumInterfaces; i++) {
-		iface = config->interface[i];
-		if (!iface || !iface->altsetting)
-			continue;
-
-		altd = &iface->altsetting[0].desc;
-		if (altd->bInterfaceClass == USB_CLASS_AUDIO &&
-		    altd->bInterfaceSubClass == USB_SUBCLASS_AUDIOCONTROL) {
-			*altd_out = altd;
-			return iface;
-		}
-	}
-
-	return NULL;
-}
-
-static int usb_offload_try_offload(struct usb_device *udev,
-				   struct usb_offload_candidate *cand)
-{
-	struct usb_interface_descriptor *altd;
-	struct usb_interface *audctrl;
-	int ret;
-
-	if (!udev || !cand)
-		return -EINVAL;
 	if (offload_disable)
-		return -EOPNOTSUPP;
+		return false;
 
-	switch (udev->speed) {
+	switch (chip->dev->speed) {
 	case USB_SPEED_FULL:
 	case USB_SPEED_HIGH:
 		break;
 	default:
-		return -EOPNOTSUPP;
+		return false;
 	}
 
-	audctrl = usb_offload_find_audio_control(udev, &altd);
-	if (!audctrl)
-		return -EINVAL;
-
-	memset(cand, 0, sizeof(*cand));
-	cand->ac_ifnum = altd->bInterfaceNumber;
-
-	switch (altd->bInterfaceProtocol) {
-	case UAC_VERSION_1:
-		cand->uac_version = UAC_VERSION_1;
-		ret = usb_offload_uac1_enum_endpoints(udev, audctrl, cand);
-		break;
-	case UAC_VERSION_2:
-	case UAC_VERSION_3:
-		cand->uac_version = altd->bInterfaceProtocol;
-		ret = usb_offload_uac2_enum_endpoints(udev, audctrl, cand);
-		break;
-	default:
-		return -EOPNOTSUPP;
-	}
-
-	if (ret)
-		return ret;
-	if (!cand->num_eps)
-		return -EOPNOTSUPP;
-
-	return 0;
+	/* the audio function the sideband is registered on */
+	return chip->ctrl_intf &&
+	       chip->ctrl_intf->desc.bInterfaceClass == USB_CLASS_AUDIO;
 }
 
 /*
@@ -381,7 +162,7 @@ static int usb_offload_try_offload(struct usb_device *udev,
  *
  * One module-global registration; the usb-audio core allows only a
  * single set of platform ops. We map each offloaded snd_usb_audio chip
- * to a record holding its candidate description.
+ * to a record of its offload state.
  */
 
 /**
@@ -415,7 +196,6 @@ struct usb_offload_ua_stream {
  * @chip:		the owning usb-audio chip.
  * @udev:		shortcut to chip->dev.
  * @sb:			xHCI sideband instance for this device.
- * @cand:		parsed candidate description.
  * @connected:		true once usb_offload_connect() succeeded.
  * @streams:		the streams currently acquired on the device.
  */
@@ -424,7 +204,6 @@ struct usb_offload_dev {
 	struct snd_usb_audio		*chip;
 	struct usb_device		*udev;
 	struct xhci_sideband		*sb;
-	struct usb_offload_candidate	cand;
 	bool				connected;
 	struct list_head		streams;
 };
@@ -1351,7 +1130,6 @@ static void usb_offload_ua_connect_cb(struct snd_usb_audio *chip)
 {
 	struct usb_offload_usb_dev_info *id __free(kfree) = NULL;
 	struct usb_offload_ctx *ctx;
-	struct usb_offload_candidate cand;
 	struct usb_offload_dev *dev;
 	struct usb_interface *audctrl;
 	struct usb_device *udev;
@@ -1361,10 +1139,8 @@ static void usb_offload_ua_connect_cb(struct snd_usb_audio *chip)
 		return;
 	udev = chip->dev;
 
-	ret = usb_offload_try_offload(udev, &cand);
-	if (ret) {
-		dev_dbg(&udev->dev,
-			"USB offload: device not a candidate: %d\n", ret);
+	if (!usb_offload_chip_is_candidate(chip)) {
+		dev_dbg(&udev->dev, "USB offload: device not a candidate\n");
 		return;
 	}
 
@@ -1409,9 +1185,8 @@ static void usb_offload_ua_connect_cb(struct snd_usb_audio *chip)
 
 	dev->chip		= chip;
 	dev->udev		= udev;
-	dev->cand		= cand;
 	INIT_LIST_HEAD(&dev->streams);
-	audctrl = usb_ifnum_to_if(udev, cand.ac_ifnum);
+	audctrl = usb_ifnum_to_if(udev, chip->ctrl_intf->desc.bInterfaceNumber);
 	if (!audctrl) {
 		ret = -ENODEV;
 		goto free_dev_unlock;
@@ -1438,8 +1213,8 @@ static void usb_offload_ua_connect_cb(struct snd_usb_audio *chip)
 	mutex_unlock(&usb_offload_ua_lock);
 
 	dev_dbg(&udev->dev,
-		"USB offload: device offloaded (UAC protocol %#x, %u endpoint(s))\n",
-		dev->cand.uac_version, dev->cand.num_eps);
+		"USB offload: device offloaded (UAC protocol %#x)\n",
+		chip->ctrl_intf->desc.bInterfaceProtocol);
 	return;
 
 unregister_sb:
