@@ -539,36 +539,24 @@ static unsigned int uaol_min_sample_bytes(const struct snd_mask *formats)
  * value the other two can still take keeps each bound the loosest one that is
  * valid, and the refining converges on the combinations that fit.
  */
-static int uaol_rule_rate(struct snd_pcm_hw_params *params, struct snd_pcm_hw_rule *rule)
+static int uaol_rule_rate_channels(struct snd_pcm_hw_params *params,
+				   struct snd_pcm_hw_rule *rule)
 {
-	struct snd_interval *channels = hw_param_interval(params, SNDRV_PCM_HW_PARAM_CHANNELS);
+	/* the product of the two is what the budget bounds, so one limits the other */
+	int other = rule->var == SNDRV_PCM_HW_PARAM_RATE ? SNDRV_PCM_HW_PARAM_CHANNELS :
+							   SNDRV_PCM_HW_PARAM_RATE;
+	struct snd_interval *other_i = hw_param_interval(params, other);
 	unsigned int budget = (uintptr_t)rule->private;
 	unsigned int bytes;
 	struct snd_interval t = { .integer = 1 };
 
 	bytes = uaol_min_sample_bytes(hw_param_mask(params, SNDRV_PCM_HW_PARAM_FORMAT));
-	if (!bytes || !channels->min)
+	if (!bytes || !other_i->min)
 		return 0;
 
-	t.max = budget / (channels->min * bytes);
+	t.max = budget / (other_i->min * bytes);
 
-	return snd_interval_refine(hw_param_interval(params, SNDRV_PCM_HW_PARAM_RATE), &t);
-}
-
-static int uaol_rule_channels(struct snd_pcm_hw_params *params, struct snd_pcm_hw_rule *rule)
-{
-	struct snd_interval *rate = hw_param_interval(params, SNDRV_PCM_HW_PARAM_RATE);
-	unsigned int budget = (uintptr_t)rule->private;
-	unsigned int bytes;
-	struct snd_interval t = { .integer = 1 };
-
-	bytes = uaol_min_sample_bytes(hw_param_mask(params, SNDRV_PCM_HW_PARAM_FORMAT));
-	if (!bytes || !rate->min)
-		return 0;
-
-	t.max = budget / (rate->min * bytes);
-
-	return snd_interval_refine(hw_param_interval(params, SNDRV_PCM_HW_PARAM_CHANNELS), &t);
+	return snd_interval_refine(hw_param_interval(params, rule->var), &t);
 }
 
 static int uaol_rule_format(struct snd_pcm_hw_params *params, struct snd_pcm_hw_rule *rule)
@@ -631,10 +619,10 @@ static void hda_uaol_set_fifo_constraint(struct snd_sof_dev *sdev,
 	budget = size / SOF_UAOL_FIFO_INTERVALS * (USEC_PER_SEC / 125);
 
 	snd_pcm_hw_rule_add(runtime, 0, SNDRV_PCM_HW_PARAM_RATE,
-			    uaol_rule_rate, (void *)(uintptr_t)budget,
+			    uaol_rule_rate_channels, (void *)(uintptr_t)budget,
 			    SNDRV_PCM_HW_PARAM_CHANNELS, SNDRV_PCM_HW_PARAM_FORMAT, -1);
 	snd_pcm_hw_rule_add(runtime, 0, SNDRV_PCM_HW_PARAM_CHANNELS,
-			    uaol_rule_channels, (void *)(uintptr_t)budget,
+			    uaol_rule_rate_channels, (void *)(uintptr_t)budget,
 			    SNDRV_PCM_HW_PARAM_RATE, SNDRV_PCM_HW_PARAM_FORMAT, -1);
 	snd_pcm_hw_rule_add(runtime, 0, SNDRV_PCM_HW_PARAM_FORMAT,
 			    uaol_rule_format, (void *)(uintptr_t)budget,
