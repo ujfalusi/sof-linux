@@ -409,23 +409,13 @@ The library registers a ``snd_usb_platform_ops`` table with connect and
 disconnect callbacks. snd-usb-audio keeps driving the device and calls these
 callbacks as its interfaces are probed and removed.
 
-The bridge accepts a device only if it passes the descriptor filter *and*
-registers for xHCI Audio Sideband use:
+The bridge accepts a device only if it is an audio-class function usb-audio
+has set up PCMs for *and* registers for xHCI Audio Sideband use:
 
 * The device must be full-speed or high-speed. SuperSpeed devices are rejected.
-* For UAC1, the streaming interfaces are found from the AudioControl header's
-  interface collection.
-* For UAC2, the streaming interfaces are found from the AudioControl
-  interface association descriptor. UAC3 devices take the same path. This
-  does not mean UAC3 is fully supported.
-* For each AudioStreaming interface, the filter checks the first alternate
-  setting that has endpoints. That setting needs an isochronous data endpoint
-  with a nonzero maximum packet size, optionally followed by an explicit
-  isochronous feedback IN endpoint. More than two endpoints are rejected.
-  Interfaces of another subclass in the collection, MIDI for instance, are
-  skipped.
-* One malformed or unsupported streaming interface rejects the whole device,
-  as does a device without any streaming endpoint.
+* The descriptors are not parsed again: the streams, formats and endpoints are
+  the ones snd-usb-audio found, with whatever it rejected as malformed already
+  left out. A device without any PCM that can be offloaded is rejected.
 * ``snd_usb_offload.offload_disable=1`` disables candidate selection.
 
 Sideband registration needs a valid xHCI slot and a controller with Audio
@@ -485,7 +475,7 @@ From a USB chip to enumerated control items
 The connection sequence is::
 
     snd-usb-audio connect_cb(chip)
-      usb_offload_try_offload()            descriptor/speed filter
+      usb_offload_chip_is_candidate()      speed/class check
       xhci_sideband_register()             controller eligibility
       usb_offload_ua_build_id()            card/chip/PCM identity
       usb_offload_connect()
@@ -1132,9 +1122,8 @@ Current limits:
   for OUT and four for IN endpoints, of which SOF uses two for capture and
   two for clock feedback. An explicit feedback endpoint uses one of the
   feedback resources plus a capture-direction link DMA.
-* The candidate filter is deliberately strict but only checks one alternate
-  setting per interface at connect time. A device that appears in the route
-  controls is not guaranteed to work in every format.
+* A device that appears in the route controls is not guaranteed to work in
+  every format.
 * SOF keeps asynchronous playback on the host unless ``allow_feedback`` is
   set; see `Asynchronous playback stays on the host`_.
 * Implicit feedback is not supported; such a sync source is left unused even
