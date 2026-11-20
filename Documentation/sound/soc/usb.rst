@@ -118,8 +118,9 @@ Returns 0 on success, and -EOPNOTSUPP on failure.
 audio device detection.  This can be utilized in the BE DAI
 driver to keep track of available USB audio devices.  This is intended
 to be called by the USB offload driver residing in USB SND.  The device is
-added to ``available_devices`` and every route of either direction that has
-no selection yet is pointed at its first PCM no other route has.
+added to ``available_devices`` and the route controls are notified. A route
+nothing was picked for follows its default pair, see the selection rules
+below.
 
 Returns 0 on success, -ENODEV when no port is registered for ``usbdev`` (the
 device is then not listed and must not be reported as disconnected later),
@@ -136,8 +137,8 @@ failures.
 
 **snd_soc_usb_disconnect()** notifies the ASoC USB DPCM BE DAI link of a USB
 audio device removal.  This is intended to be called by the USB offload
-driver that resides in USB SND.  Every route that pointed at the device is
-cleared and given a new default selection, if another device is available.
+driver that resides in USB SND.  Every route that was picked for the device
+goes back to its default pair.
 
 .. code-block:: rst
 
@@ -563,12 +564,14 @@ always reflects what is connected; with nothing connected the single item is
 
 Selection rules:
 
-  - On connect, a route with no selection gets the first pair no other route
-    of the direction has, so that the routes spread over what is connected.
-    A route pointing at a pair another route also has is moved to a pair of
-    the new device no route has yet, unless a stream is running on it.
-  - On disconnect, routes pointing at the device are cleared and selected
-    again by the same rule from what remains.
+  - A route nothing was picked for follows its default: route N gets the Nth
+    available pair of its direction, wrapping around when there are fewer
+    pairs than routes, so that the routes spread over what is connected.
+    The default is worked out on every query, it is not stored, so it moves
+    as devices connect and disconnect.
+  - A write picks a pair for the route. Picking the pair the route already
+    points at pins it there.
+  - On disconnect, routes picked for the device go back to their default.
   - A write is refused with ``-EBUSY`` while the backend reports the route
     busy through ``is_route_busy()``, i.e. while a stream is open on it.
     Writing the current selection is a no-op.  A selection by itself claims

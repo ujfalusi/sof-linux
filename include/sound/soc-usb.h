@@ -45,9 +45,9 @@ struct snd_soc_usb_device {
 
 /**
  * struct snd_soc_usb_route - one offload route of a direction
- * @sdev: the device currently routed to, NULL when nothing is selected
- * @pcm_idx: the PCM index of @sdev currently routed to, -1 when nothing is
- *	     selected
+ * @sdev: the device picked for the route, NULL while nothing is picked and the
+ *	  route follows its default
+ * @pcm_idx: the PCM index of @sdev picked, -1 while nothing is picked
  * @kctl: the enumerated route kcontrol, once created by
  *	  snd_soc_usb_setup_offload_route_ctl()
  *

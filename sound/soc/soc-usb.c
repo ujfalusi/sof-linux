@@ -130,88 +130,38 @@ static bool snd_soc_usb_route_entry_at(struct snd_soc_usb *usb, int direction,
 	return false;
 }
 
-/* Caller holds ctx_mutex. -1 if nothing is selected or it is no longer listed. */
-static int snd_soc_usb_route_index_of(struct snd_soc_usb *usb, int direction,
-				      unsigned int route)
-{
-	struct snd_soc_usb_route *r = &usb->routes[direction][route];
-	struct snd_soc_usb_route_entry entry;
-	unsigned int i;
-
-	if (!r->sdev)
-		return -1;
-
-	for (i = 0; snd_soc_usb_route_entry_at(usb, direction, i, &entry); i++) {
-		if (entry.sdev == r->sdev && entry.pcm_idx == r->pcm_idx)
-			return i;
-	}
-
-	return -1;
-}
-
 /*
- * Caller holds ctx_mutex. Whether a route of @direction other than @route
- * is pointed at the pair. Legal, but only one of them can offload it at a
- * time, so a route which duplicates another is as good as unassigned when a
- * default selection is looked for.
+ * Caller holds ctx_mutex. The pair @route of @direction currently points at,
+ * and its position in the flat list: the one picked for it, or while nothing
+ * is picked (or the picked pair is gone) the one it gets by default. By
+ * default route N gets the Nth pair, wrapping around when there are fewer
+ * pairs than routes, so that the routes spread over what is connected. The
+ * default is worked out here on every call instead of being stored, it
+ * follows the devices as they come and go. Returns false when no pair is
+ * available.
  */
-static bool snd_soc_usb_route_taken(struct snd_soc_usb *usb, int direction,
-				    unsigned int route,
-				    const struct snd_soc_usb_route_entry *entry)
-{
-	unsigned int i;
-
-	for (i = 0; i < usb->num_routes[direction]; i++) {
-		struct snd_soc_usb_route *r = &usb->routes[direction][i];
-
-		if (i != route && r->sdev == entry->sdev && r->pcm_idx == entry->pcm_idx)
-			return true;
-	}
-
-	return false;
-}
-
-/* Caller holds ctx_mutex. Whether @route points at a pair another route of @direction has. */
-static bool snd_soc_usb_route_duplicate(struct snd_soc_usb *usb, int direction,
-					unsigned int route)
-{
-	struct snd_soc_usb_route *r = &usb->routes[direction][route];
-	struct snd_soc_usb_route_entry entry = { .sdev = r->sdev, .pcm_idx = r->pcm_idx };
-
-	return r->sdev && snd_soc_usb_route_taken(usb, direction, route, &entry);
-}
-
-/*
- * Caller holds ctx_mutex. The pair @route of @direction gets by default: the
- * first available pair no other route of the direction has, so that the
- * routes spread over what is connected, or the first available pair at all
- * when every pair is taken. @sdev limits the search to one device, NULL
- * means any. @spare_only refuses the fallback to a taken pair.
- */
-static bool snd_soc_usb_default_entry(struct snd_soc_usb *usb, int direction,
+static bool snd_soc_usb_route_resolve(struct snd_soc_usb *usb, int direction,
 				      unsigned int route,
-				      const struct snd_soc_usb_device *sdev,
-				      bool spare_only,
-				      struct snd_soc_usb_route_entry *entry)
+				      struct snd_soc_usb_route_entry *entry,
+				      unsigned int *index)
 {
-	struct snd_soc_usb_route_entry first = { .sdev = NULL };
-	unsigned int i;
+	struct snd_soc_usb_route *r = &usb->routes[direction][route];
+	unsigned int i, count = 0;
 
 	for (i = 0; snd_soc_usb_route_entry_at(usb, direction, i, entry); i++) {
-		if (sdev && entry->sdev != sdev)
-			continue;
-		if (!first.sdev)
-			first = *entry;
-		if (!snd_soc_usb_route_taken(usb, direction, route, entry))
+		if (r->sdev && entry->sdev == r->sdev && entry->pcm_idx == r->pcm_idx) {
+			*index = i;
 			return true;
+		}
+		count++;
 	}
 
-	if (spare_only || !first.sdev)
+	if (!count)
 		return false;
 
-	*entry = first;
+	*index = route % count;
 
-	return true;
+	return snd_soc_usb_route_entry_at(usb, direction, *index, entry);
 }
 
 /* SOC USB sound kcontrols */
@@ -306,6 +256,9 @@ int snd_soc_usb_get_selected_device(struct snd_soc_usb *usb, int direction,
 				    struct snd_soc_usb_device **sdev,
 				    int *pcm_index)
 {
+	struct snd_soc_usb_route_entry entry;
+	unsigned int index;
+
 	if (!usb || direction < 0 || direction > SNDRV_PCM_STREAM_LAST)
 		return -EINVAL;
 
@@ -313,8 +266,13 @@ int snd_soc_usb_get_selected_device(struct snd_soc_usb *usb, int direction,
 		return -EINVAL;
 
 	guard(mutex)(&ctx_mutex);
-	*sdev = usb->routes[direction][route].sdev;
-	*pcm_index = usb->routes[direction][route].pcm_idx;
+	if (snd_soc_usb_route_resolve(usb, direction, route, &entry, &index)) {
+		*sdev = entry.sdev;
+		*pcm_index = entry.pcm_idx;
+	} else {
+		*sdev = NULL;
+		*pcm_index = -1;
+	}
 
 	return 0;
 }
@@ -511,76 +469,28 @@ void snd_soc_usb_remove_port(struct snd_soc_usb *usb)
 EXPORT_SYMBOL_GPL(snd_soc_usb_remove_port);
 
 /*
- * Caller holds ctx_mutex. If nothing is currently selected for @route of
- * @direction, point it at its default pair, see snd_soc_usb_default_entry(),
- * and notify the backend. Reused for a fresh connect and for the disconnect
- * fallback below - both are "something in the list has changed, is a default
- * selection needed".
- * @ctx: USB context containing the route state.
- * @direction: PCM stream direction to select.
- * @route: the route of @direction to select for.
- * Returns true if a selection was actually made, so the caller knows the
- * route kcontrol's value (not just its item list) needs to be notified.
+ * Caller holds ctx_mutex. The device list changed: the items of every route
+ * control did, and so can the pair a route which was not picked for follows.
  */
-static bool snd_soc_usb_auto_select(struct snd_soc_usb *ctx, int direction,
-				    unsigned int route)
+static void snd_soc_usb_notify_routes_changed(struct snd_soc_usb *ctx)
 {
-	struct snd_soc_usb_route *r = &ctx->routes[direction][route];
-	struct snd_soc_usb_route_entry entry;
+	int direction;
 
-	if (r->sdev)
-		return false;
+	if (!ctx->component || !ctx->component->card)
+		return;
 
-	if (!snd_soc_usb_default_entry(ctx, direction, route, NULL, false, &entry))
-		return false;
+	for (direction = 0; direction <= SNDRV_PCM_STREAM_LAST; direction++) {
+		unsigned int route;
 
-	r->sdev = entry.sdev;
-	r->pcm_idx = entry.pcm_idx;
+		for (route = 0; route < ctx->num_routes[direction]; route++) {
+			struct snd_kcontrol *kctl = ctx->routes[direction][route].kctl;
 
-	return true;
-}
-
-/*
- * Caller holds ctx_mutex. A route which duplicates another route's pair has
- * nothing of its own to offload; when a device connects, move such a route
- * to a pair of the new device no route has yet, unless a stream is running
- * on it. A route pointing at a pair of its own is never changed by a
- * connect.
- */
-static bool snd_soc_usb_take_over_duplicate(struct snd_soc_usb *ctx, int direction,
-					    unsigned int route,
-					    struct snd_soc_usb_device *sdev)
-{
-	struct snd_soc_usb_route *r = &ctx->routes[direction][route];
-	struct snd_soc_usb_route_entry entry;
-
-	if (!snd_soc_usb_route_duplicate(ctx, direction, route))
-		return false;
-
-	if (ctx->is_route_busy && ctx->is_route_busy(ctx, direction, route))
-		return false;
-
-	if (!snd_soc_usb_default_entry(ctx, direction, route, sdev, true, &entry))
-		return false;
-
-	r->sdev = entry.sdev;
-	r->pcm_idx = entry.pcm_idx;
-
-	return true;
-}
-
-/* Caller holds ctx_mutex. */
-static void snd_soc_usb_notify_route_changed(struct snd_soc_usb *ctx, int direction,
-					     unsigned int route, bool value_changed)
-{
-	struct snd_soc_usb_route *r = &ctx->routes[direction][route];
-	unsigned int mask = SNDRV_CTL_EVENT_MASK_INFO;
-
-	if (value_changed)
-		mask |= SNDRV_CTL_EVENT_MASK_VALUE;
-
-	if (r->kctl && ctx->component && ctx->component->card)
-		snd_ctl_notify(ctx->component->card->snd_card, mask, &r->kctl->id);
+			if (kctl)
+				snd_ctl_notify(ctx->component->card->snd_card,
+					       SNDRV_CTL_EVENT_MASK_INFO |
+					       SNDRV_CTL_EVENT_MASK_VALUE, &kctl->id);
+		}
+	}
 }
 
 /* Caller holds ctx_mutex. Whether @sdev is on the port's available_devices. */
@@ -613,7 +523,6 @@ static bool snd_soc_usb_device_listed(struct snd_soc_usb *ctx,
 int snd_soc_usb_connect(struct device *usbdev, struct snd_soc_usb_device *sdev)
 {
 	struct snd_soc_usb *ctx;
-	int direction;
 	int ret = 0;
 
 	if (!usbdev)
@@ -637,17 +546,7 @@ int snd_soc_usb_connect(struct device *usbdev, struct snd_soc_usb_device *sdev)
 
 	list_add_tail(&sdev->available_node, &ctx->available_devices);
 
-	for (direction = 0; direction <= SNDRV_PCM_STREAM_LAST; direction++) {
-		unsigned int route;
-
-		for (route = 0; route < ctx->num_routes[direction]; route++) {
-			bool selected = snd_soc_usb_auto_select(ctx, direction, route) ||
-					snd_soc_usb_take_over_duplicate(ctx, direction,
-									route, sdev);
-
-			snd_soc_usb_notify_route_changed(ctx, direction, route, selected);
-		}
-	}
+	snd_soc_usb_notify_routes_changed(ctx);
 
 exit:
 	mutex_unlock(&ctx_mutex);
@@ -686,24 +585,21 @@ int snd_soc_usb_disconnect(struct device *usbdev, struct snd_soc_usb_device *sde
 
 	list_del(&sdev->available_node);
 
+	/* a route picked for the device falls back to its default */
 	for (direction = 0; direction <= SNDRV_PCM_STREAM_LAST; direction++) {
 		unsigned int route;
 
 		for (route = 0; route < ctx->num_routes[direction]; route++) {
 			struct snd_soc_usb_route *r = &ctx->routes[direction][route];
-			bool released = r->sdev == sdev;
-			bool selected;
 
-			if (released) {
+			if (r->sdev == sdev) {
 				r->sdev = NULL;
 				r->pcm_idx = -1;
 			}
-
-			selected = snd_soc_usb_auto_select(ctx, direction, route);
-			snd_soc_usb_notify_route_changed(ctx, direction, route,
-							 released || selected);
 		}
 	}
+
+	snd_soc_usb_notify_routes_changed(ctx);
 
 exit:
 	mutex_unlock(&ctx_mutex);
@@ -760,13 +656,16 @@ static int snd_soc_usb_route_get(struct snd_kcontrol *kcontrol,
 	struct snd_soc_usb *usb = snd_kcontrol_chip(kcontrol);
 	int direction = SND_SOC_USB_KCTL_DIRECTION(kcontrol->private_value);
 	unsigned int route = SND_SOC_USB_KCTL_ROUTE(kcontrol->private_value);
-	int idx;
+	struct snd_soc_usb_route_entry entry;
+	unsigned int index = 0;
 
-	scoped_guard(mutex, &ctx_mutex)
-		idx = snd_soc_usb_route_index_of(usb, direction, route);
+	scoped_guard(mutex, &ctx_mutex) {
+		/* item 0 is "None" when nothing is available */
+		if (!snd_soc_usb_route_resolve(usb, direction, route, &entry, &index))
+			index = 0;
+	}
 
-	/* item 0 is "None" when nothing is available */
-	ucontrol->value.enumerated.item[0] = idx < 0 ? 0 : idx;
+	ucontrol->value.enumerated.item[0] = index;
 
 	return 0;
 }
@@ -779,7 +678,9 @@ static int snd_soc_usb_route_put(struct snd_kcontrol *kcontrol,
 	unsigned int route = SND_SOC_USB_KCTL_ROUTE(kcontrol->private_value);
 	unsigned int requested = ucontrol->value.enumerated.item[0];
 	struct snd_soc_usb_route *r = &usb->routes[direction][route];
-	struct snd_soc_usb_route_entry entry;
+	struct snd_soc_usb_route_entry entry, current_entry;
+	unsigned int current_index;
+	bool changed;
 
 	guard(mutex)(&ctx_mutex);
 
@@ -787,16 +688,18 @@ static int snd_soc_usb_route_put(struct snd_kcontrol *kcontrol,
 	if (!snd_soc_usb_route_entry_at(usb, direction, requested, &entry))
 		return requested ? -EINVAL : 0;
 
-	if (entry.sdev == r->sdev && entry.pcm_idx == r->pcm_idx)
-		return 0;
+	changed = !snd_soc_usb_route_resolve(usb, direction, route, &current_entry,
+					     &current_index) ||
+		  current_index != requested;
 
-	if (usb->is_route_busy && usb->is_route_busy(usb, direction, route))
+	if (changed && usb->is_route_busy && usb->is_route_busy(usb, direction, route))
 		return -EBUSY;
 
+	/* picking what the route points at already pins it there */
 	r->sdev = entry.sdev;
 	r->pcm_idx = entry.pcm_idx;
 
-	return 1;
+	return changed;
 }
 
 static const struct snd_kcontrol_new snd_soc_usb_route_ctl_template = {
