@@ -461,8 +461,8 @@ static int uaol_dai_remove(struct snd_soc_dai *dai)
 
 /*
  * Which device a backend plays to is the ASoC USB route kcontrol's job to
- * decide, per route (defaulting to the first connected pair no other route
- * of the direction has, see snd_soc_usb_connect()'s auto-selection) - this
+ * decide, per route (defaulting to the Nth connected pair for route N, see
+ * snd_soc_usb_get_selected_device()) - this
  * just resolves that selection back to the Intel-side record that carries
  * the actual usb_device pointer.
  */
