@@ -373,9 +373,8 @@ int snd_sof_suspend(struct device *dev)
 }
 EXPORT_SYMBOL(snd_sof_suspend);
 
-int snd_sof_prepare(struct device *dev)
+static void sof_set_system_suspend_target(struct snd_sof_dev *sdev)
 {
-	struct snd_sof_dev *sdev = dev_get_drvdata(dev);
 	const struct sof_dev_desc *desc = sdev->pdata->desc;
 
 	/* will suspend to S3 by default */
@@ -387,10 +386,10 @@ int snd_sof_prepare(struct device *dev)
 	 */
 	if (sdev->fw_state == SOF_FW_CRASHED ||
 	    sdev->fw_state == SOF_FW_BOOT_FAILED)
-		return 0;
+		return;
 
 	if (!desc->use_acpi_target_states)
-		return 0;
+		return;
 
 #if defined(CONFIG_ACPI)
 	switch (acpi_target_system_state()) {
@@ -412,6 +411,13 @@ int snd_sof_prepare(struct device *dev)
 		break;
 	}
 #endif
+}
+
+int snd_sof_prepare(struct device *dev)
+{
+	struct snd_sof_dev *sdev = dev_get_drvdata(dev);
+
+	sof_set_system_suspend_target(sdev);
 
 	return 0;
 }
