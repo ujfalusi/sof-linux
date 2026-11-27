@@ -319,6 +319,116 @@ static bool sof_pcm_stream_is_running(struct snd_pcm_substream *substream)
 	return running;
 }
 
+/* DAPM widget with ignore_suspend set by sof_pcm_suspend_prepare() */
+struct sof_pcm_ignore_suspend_widget {
+	struct snd_soc_dapm_widget *widget;
+	bool initial_ignore_suspend;
+	struct list_head list;
+};
+
+/* must be called with the DAPM mutex of the card held */
+static int sof_pcm_widget_set_ignore_suspend(struct snd_sof_dev *sdev,
+					     struct snd_soc_dapm_widget *w)
+{
+	struct sof_pcm_ignore_suspend_widget *isw;
+
+	list_for_each_entry(isw, &sdev->ignore_suspend_widget_list, list) {
+		if (isw->widget == w)
+			return 0;
+	}
+
+	isw = kzalloc(sizeof(*isw), GFP_KERNEL);
+	if (!isw)
+		return -ENOMEM;
+
+	isw->widget = w;
+	isw->initial_ignore_suspend = w->ignore_suspend;
+	list_add_tail(&isw->list, &sdev->ignore_suspend_widget_list);
+
+	w->ignore_suspend = 1;
+	dev_dbg(sdev->dev, "ignore suspend for widget %s\n", w->name);
+
+	return 0;
+}
+
+/**
+ * sof_pcm_dapm_restore_ignore_suspend - restore the DAPM widgets
+ * @sdev: SOF device
+ * @restore: restore the ignore_suspend flag of the widgets
+ *
+ * Restore the initial ignore_suspend flag of the widgets which was set by
+ * sof_pcm_dapm_set_ignore_suspend(). If @restore is false, only the tracking
+ * list is freed, the widgets are not touched.
+ */
+static void sof_pcm_dapm_restore_ignore_suspend(struct snd_sof_dev *sdev,
+						bool restore)
+{
+	struct sof_pcm_ignore_suspend_widget *isw, *tmp;
+
+	if (list_empty(&sdev->ignore_suspend_widget_list))
+		return;
+
+	if (restore)
+		snd_soc_dapm_mutex_lock(sdev->component->card);
+
+	list_for_each_entry_safe(isw, tmp, &sdev->ignore_suspend_widget_list, list) {
+		if (restore)
+			isw->widget->ignore_suspend = isw->initial_ignore_suspend;
+
+		list_del(&isw->list);
+		kfree(isw);
+	}
+
+	if (restore)
+		snd_soc_dapm_mutex_unlock(sdev->component->card);
+}
+
+/*
+ * The sound card is moved to D3hot during system suspend and DAPM powers down
+ * all paths unless their endpoints are marked with ignore_suspend.
+ * Set the ignore_suspend flag for the FE DAI widget and for all the endpoints
+ * connected to it to keep the path of the stream powered.
+ */
+static int sof_pcm_dapm_set_ignore_suspend(struct snd_sof_dev *sdev,
+					   struct snd_soc_pcm_runtime *rtd, int dir)
+{
+	struct snd_soc_dai *dai;
+	int i;
+
+	for_each_rtd_cpu_dais(rtd, i, dai) {
+		struct snd_soc_dapm_widget_list *list = NULL;
+		struct snd_soc_dapm_widget *w;
+		int j, ret;
+
+		ret = snd_soc_dapm_dai_get_connected_widgets(dai, dir, &list, NULL);
+		if (ret < 0) {
+			snd_soc_dapm_dai_free_widgets(&list);
+			return ret;
+		}
+
+		snd_soc_dapm_mutex_lock(rtd->card);
+
+		w = snd_soc_dai_get_widget(dai, dir);
+		ret = w ? sof_pcm_widget_set_ignore_suspend(sdev, w) : 0;
+
+		for_each_dapm_widgets(list, j, w) {
+			if (ret)
+				break;
+
+			if (w->is_ep)
+				ret = sof_pcm_widget_set_ignore_suspend(sdev, w);
+		}
+
+		snd_soc_dapm_mutex_unlock(rtd->card);
+		snd_soc_dapm_dai_free_widgets(&list);
+
+		if (ret)
+			return ret;
+	}
+
+	return 0;
+}
+
 /**
  * sof_pcm_suspend_prepare - select the streams to keep running over suspend
  * @sdev: SOF device
@@ -336,11 +446,21 @@ static bool sof_pcm_stream_is_running(struct snd_pcm_substream *substream)
  * must stay in D0 and that the pipelines of the stream must not be freed. The
  * flag is cleared when the stream is stopped or paused or on the next system
  * suspend.
+ *
+ * The DAPM endpoints of the streams are marked with ignore_suspend to keep
+ * their paths powered. The widgets are restored on the next system suspend,
+ * the flag has no effect while the card is powered.
+ *
+ * If the DAPM path of a stream can not be kept powered, none of the streams are
+ * kept running and all of them are suspended normally.
  */
 void sof_pcm_suspend_prepare(struct snd_sof_dev *sdev)
 {
 	struct snd_sof_pcm *spcm;
-	int dir;
+	int dir, ret;
+
+	/* restore the DAPM widgets from the previous system suspend */
+	sof_pcm_dapm_restore_ignore_suspend(sdev, true);
 
 	list_for_each_entry(spcm, &sdev->pcm_list, list) {
 		struct snd_soc_pcm_runtime *rtd = NULL;
@@ -385,12 +505,36 @@ void sof_pcm_suspend_prepare(struct snd_sof_dev *sdev)
 			continue;
 		}
 
+		for_each_pcm_streams(dir) {
+			if (!spcm->stream[dir].suspend_ignored)
+				continue;
+
+			ret = sof_pcm_dapm_set_ignore_suspend(sdev, rtd, dir);
+			if (ret) {
+				spcm_err(spcm, dir,
+					 "failed to keep the DAPM path powered: %d\n",
+					 ret);
+				goto err;
+			}
+		}
+
 		if (rtd->dai_link->ignore_suspend)
 			continue;
 
 		rtd->dai_link->ignore_suspend = 1;
 		spcm->ignore_suspend_link = rtd->dai_link;
 	}
+
+	return;
+
+err:
+	list_for_each_entry(spcm, &sdev->pcm_list, list) {
+		for_each_pcm_streams(dir)
+			spcm->stream[dir].suspend_ignored = false;
+	}
+
+	sof_pcm_suspend_complete(sdev);
+	sof_pcm_dapm_restore_ignore_suspend(sdev, true);
 }
 
 /**
@@ -909,6 +1053,9 @@ pm_error:
 static void sof_pcm_remove(struct snd_soc_component *component)
 {
 	struct snd_sof_dev *sdev = snd_soc_component_get_drvdata(component);
+
+	/* the widgets might be already freed, do not restore them */
+	sof_pcm_dapm_restore_ignore_suspend(sdev, false);
 
 	/* remove topology */
 	snd_soc_tplg_component_remove(component);

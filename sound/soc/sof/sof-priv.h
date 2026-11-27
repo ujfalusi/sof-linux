@@ -658,6 +658,8 @@ struct snd_sof_dev {
 	struct list_head dai_list;
 	struct list_head dai_link_list;
 	struct list_head route_list;
+	/* DAPM widgets with ignore_suspend set by sof_pcm_suspend_prepare() */
+	struct list_head ignore_suspend_widget_list;
 	struct snd_soc_component *component;
 	u32 enabled_cores_mask; /* keep track of enabled cores */
 	bool led_present;
