@@ -289,14 +289,23 @@ int sof_pcm_free_all_streams(struct snd_sof_dev *sdev)
 	return 0;
 }
 
-/* Check if the stream can be kept running with the DSP in D0i3 during S0ix */
-static bool sof_pcm_stream_can_ignore_suspend(struct snd_sof_dev *sdev,
-					      struct snd_sof_pcm *spcm, int dir)
+/*
+ * Check if the stream can be kept running with the DSP in D0i3 during S0ix.
+ *
+ * Only Wake-on-Voice (WoV) streams can be kept running. A WoV stream is:
+ * a capture stream,
+ * the CAPTURE_COMPATIBLE_D0I3 is set for the PCM,
+ * it is not a Deep Buffer stream.
+ *
+ * Historically the CAPTURE_COMPATIBLE_D0I3 token was added to mark the WoV
+ * stream with IPC3. With IPC4 the COMPATIBLE_D0I3 tokens are also used to mark
+ * the Deep Buffer streams, which can not be kept running.
+ */
+static bool sof_pcm_stream_can_ignore_suspend(struct snd_sof_pcm *spcm, int dir)
 {
-	const struct sof_ipc_pcm_ops *pcm_ops = sof_ipc_get_ops(sdev, pcm);
-
-	return pcm_ops && pcm_ops->d0i3_supported_in_s0ix &&
-	       spcm->stream[dir].d0i3_compatible;
+	return dir == SNDRV_PCM_STREAM_CAPTURE &&
+	       spcm->stream[dir].d0i3_compatible &&
+	       spcm->stream[dir].dsp_max_burst_size_in_ms <= 1;
 }
 
 static bool sof_pcm_stream_is_running(struct snd_pcm_substream *substream)
@@ -353,7 +362,7 @@ void sof_pcm_suspend_prepare(struct snd_sof_dev *sdev)
 
 			if (sdev->system_suspend_target == SOF_SUSPEND_S0IX &&
 			    !sdev->dspless_mode_selected &&
-			    sof_pcm_stream_can_ignore_suspend(sdev, spcm, dir)) {
+			    sof_pcm_stream_can_ignore_suspend(spcm, dir)) {
 				spcm->stream[dir].suspend_ignored = true;
 				keep_running = true;
 			} else {
