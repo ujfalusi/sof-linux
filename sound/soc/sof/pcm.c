@@ -289,6 +289,121 @@ int sof_pcm_free_all_streams(struct snd_sof_dev *sdev)
 	return 0;
 }
 
+/* Check if the stream can be kept running with the DSP in D0i3 during S0ix */
+static bool sof_pcm_stream_can_ignore_suspend(struct snd_sof_dev *sdev,
+					      struct snd_sof_pcm *spcm, int dir)
+{
+	const struct sof_ipc_pcm_ops *pcm_ops = sof_ipc_get_ops(sdev, pcm);
+
+	return pcm_ops && pcm_ops->d0i3_supported_in_s0ix &&
+	       spcm->stream[dir].d0i3_compatible;
+}
+
+static bool sof_pcm_stream_is_running(struct snd_pcm_substream *substream)
+{
+	bool running;
+
+	snd_pcm_stream_lock_irq(substream);
+	running = substream->runtime->state == SNDRV_PCM_STATE_RUNNING;
+	snd_pcm_stream_unlock_irq(substream);
+
+	return running;
+}
+
+/**
+ * sof_pcm_suspend_prepare - select the streams to keep running over suspend
+ * @sdev: SOF device
+ *
+ * Called from the PM prepare callback, before the sound card is suspended.
+ *
+ * When the system is entering S0ix, the running streams which can work with
+ * the DSP in D0i3 are kept running. The ignore_suspend flag is set for their
+ * FE dai_link, which makes ASoC to skip the suspend of the PCM: there is no
+ * SUSPEND trigger for the FE and the BEs and the stream stays in RUNNING
+ * state. Userspace does not need to resume or restart the stream and a stop
+ * or close after the system resume is handled as a normal STOP.
+ *
+ * The suspend_ignored flag of these streams tells the PM code that the DSP
+ * must stay in D0 and that the pipelines of the stream must not be freed. The
+ * flag is cleared when the stream is stopped or paused or on the next system
+ * suspend.
+ */
+void sof_pcm_suspend_prepare(struct snd_sof_dev *sdev)
+{
+	struct snd_sof_pcm *spcm;
+	int dir;
+
+	list_for_each_entry(spcm, &sdev->pcm_list, list) {
+		struct snd_soc_pcm_runtime *rtd = NULL;
+		bool keep_running = false;
+		bool must_suspend = false;
+
+		for_each_pcm_streams(dir) {
+			struct snd_pcm_substream *substream = spcm->stream[dir].substream;
+
+			spcm->stream[dir].suspend_ignored = false;
+
+			if (!substream || !substream->runtime)
+				continue;
+
+			rtd = snd_soc_substream_to_rtd(substream);
+
+			if (!sof_pcm_stream_is_running(substream))
+				continue;
+
+			if (sdev->system_suspend_target == SOF_SUSPEND_S0IX &&
+			    !sdev->dspless_mode_selected &&
+			    sof_pcm_stream_can_ignore_suspend(sdev, spcm, dir)) {
+				spcm->stream[dir].suspend_ignored = true;
+				keep_running = true;
+			} else {
+				must_suspend = true;
+			}
+		}
+
+		if (!keep_running)
+			continue;
+
+		/*
+		 * The ignore_suspend flag is per dai_link, it affects both
+		 * directions of the PCM.
+		 */
+		if (must_suspend) {
+			spcm_dbg(spcm, SNDRV_PCM_STREAM_CAPTURE,
+				 "the PCM has a stream which must be suspended\n");
+			for_each_pcm_streams(dir)
+				spcm->stream[dir].suspend_ignored = false;
+			continue;
+		}
+
+		if (rtd->dai_link->ignore_suspend)
+			continue;
+
+		rtd->dai_link->ignore_suspend = 1;
+		spcm->ignore_suspend_link = rtd->dai_link;
+	}
+}
+
+/**
+ * sof_pcm_suspend_complete - restore the FE dai_links after a system suspend
+ * @sdev: SOF device
+ *
+ * Called from the PM complete callback, clears the ignore_suspend flag of the
+ * dai_links which was set by sof_pcm_suspend_prepare().
+ */
+void sof_pcm_suspend_complete(struct snd_sof_dev *sdev)
+{
+	struct snd_sof_pcm *spcm;
+
+	list_for_each_entry(spcm, &sdev->pcm_list, list) {
+		if (!spcm->ignore_suspend_link)
+			continue;
+
+		spcm->ignore_suspend_link->ignore_suspend = 0;
+		spcm->ignore_suspend_link = NULL;
+	}
+}
+
 static int sof_pcm_hw_free(struct snd_soc_component *component,
 			   struct snd_pcm_substream *substream)
 {
@@ -421,31 +536,10 @@ static int sof_pcm_trigger(struct snd_soc_component *component,
 			ipc_first = true;
 		break;
 	case SNDRV_PCM_TRIGGER_START:
-		if (spcm->stream[substream->stream].suspend_ignored) {
-			/*
-			 * This case will be triggered when INFO_RESUME is
-			 * not supported, no need to re-start streams that
-			 * remained enabled in D0ix.
-			 */
-			spcm->stream[substream->stream].suspend_ignored = false;
-			return 0;
-		}
-
 		if (pcm_ops && pcm_ops->ipc_first_on_start)
 			ipc_first = true;
 		break;
 	case SNDRV_PCM_TRIGGER_SUSPEND:
-		/*
-		 * If DSP D0I3 is allowed during S0iX, set the suspend_ignored flag for
-		 * D0I3-compatible streams to keep the firmware pipeline running
-		 */
-		if (pcm_ops && pcm_ops->d0i3_supported_in_s0ix &&
-		    sdev->system_suspend_target == SOF_SUSPEND_S0IX &&
-		    spcm->stream[substream->stream].d0i3_compatible) {
-			spcm->stream[substream->stream].suspend_ignored = true;
-			return 0;
-		}
-
 		/* On suspend the DMA must be stopped in DSPless mode */
 		if (sdev->dspless_mode_selected)
 			reset_hw_params = true;

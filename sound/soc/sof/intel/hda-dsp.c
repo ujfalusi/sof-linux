@@ -793,8 +793,8 @@ EXPORT_SYMBOL_NS(hda_dsp_set_power_state_ipc4, "SND_SOC_SOF_INTEL_HDA_COMMON");
  * +----------------------------+		 +----------------+
  *
  * S0IX suspend: The DSP is in D0I3 if any D0I3-compatible streams
- *		 ignored the suspend trigger. Otherwise the DSP
- *		 is in D3.
+ *		 are kept running during the suspend. Otherwise the
+ *		 DSP is in D3.
  */
 
 static int hda_suspend(struct snd_sof_dev *sdev, bool runtime_suspend)

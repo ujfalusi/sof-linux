@@ -356,8 +356,8 @@ struct snd_sof_pcm_stream {
 	bool pause_supported; /* PCM device supports PAUSE operation */
 	unsigned int dsp_max_burst_size_in_ms; /* The maximum size of the host DMA burst in ms */
 	/*
-	 * flag to indicate that the DSP pipelines should be kept
-	 * active or not while suspending the stream
+	 * flag to indicate that the stream is kept running and the DSP
+	 * pipelines should be kept active during system suspend
 	 */
 	bool suspend_ignored;
 	struct snd_sof_pcm_stream_pipeline_list pipeline_list;
@@ -378,6 +378,8 @@ struct snd_sof_pcm {
 	bool setup_done[2]; /* the setup of the SOF PCM device is done */
 	bool pending_stop[2]; /* only used if (!pcm_ops->platform_stop_during_hw_free) */
 	bool compr_started[2]; /* compress stream has been started */
+	/* FE dai_link with ignore_suspend set by sof_pcm_suspend_prepare() */
+	struct snd_soc_dai_link *ignore_suspend_link;
 
 	/* Must be last - ends in a flex-array member. */
 	struct snd_soc_tplg_pcm pcm;
@@ -723,6 +725,8 @@ int sof_widget_list_free(struct snd_sof_dev *sdev, struct snd_sof_pcm *spcm, int
 int sof_pcm_dsp_pcm_free(struct snd_pcm_substream *substream, struct snd_sof_dev *sdev,
 			 struct snd_sof_pcm *spcm);
 int sof_pcm_free_all_streams(struct snd_sof_dev *sdev);
+void sof_pcm_suspend_prepare(struct snd_sof_dev *sdev);
+void sof_pcm_suspend_complete(struct snd_sof_dev *sdev);
 int get_token_u32(void *elem, void *object, u32 offset);
 int get_token_u16(void *elem, void *object, u32 offset);
 int get_token_comp_format(void *elem, void *object, u32 offset);

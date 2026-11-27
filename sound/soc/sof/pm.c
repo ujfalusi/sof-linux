@@ -38,7 +38,7 @@ static u32 snd_sof_dsp_power_target(struct snd_sof_dev *sdev)
 	case SOF_SUSPEND_S0IX:
 		/*
 		 * Currently, the only criterion for retaining the DSP in D0
-		 * is that there are streams that ignored the suspend trigger.
+		 * is that there are streams kept running during the suspend.
 		 * Additional criteria such Soundwire clock-stop mode and
 		 * device suspend latency considerations will be added later.
 		 */
@@ -419,6 +419,12 @@ int snd_sof_prepare(struct device *dev)
 
 	sof_set_system_suspend_target(sdev);
 
+	/*
+	 * Select the streams to be kept running during the system suspend.
+	 * This must be done before the sound card is suspended.
+	 */
+	sof_pcm_suspend_prepare(sdev);
+
 	return 0;
 }
 EXPORT_SYMBOL(snd_sof_prepare);
@@ -427,6 +433,7 @@ void snd_sof_complete(struct device *dev)
 {
 	struct snd_sof_dev *sdev = dev_get_drvdata(dev);
 
+	sof_pcm_suspend_complete(sdev);
 	sdev->system_suspend_target = SOF_SUSPEND_NONE;
 }
 EXPORT_SYMBOL(snd_sof_complete);
