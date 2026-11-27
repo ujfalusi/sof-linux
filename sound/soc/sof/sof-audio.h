@@ -378,6 +378,8 @@ struct snd_sof_pcm {
 	bool compr_started[2]; /* compress stream has been started */
 	/* FE dai_link with ignore_suspend set by sof_pcm_suspend_prepare() */
 	struct snd_soc_dai_link *ignore_suspend_link;
+	/* the BEs are notified with set_be_ignore_suspend */
+	bool be_ignore_suspend[2];
 
 	/* Must be last - ends in a flex-array member. */
 	struct snd_soc_tplg_pcm pcm;

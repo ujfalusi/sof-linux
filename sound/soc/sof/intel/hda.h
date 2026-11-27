@@ -960,6 +960,9 @@ bool hda_sdw_check_wakeen_irq_common(struct snd_sof_dev *sdev);
 void hda_sdw_process_wakeen_common(struct snd_sof_dev *sdev);
 void hda_sdw_process_wakeen(struct snd_sof_dev *sdev);
 bool hda_common_check_sdw_irq(struct snd_sof_dev *sdev);
+void hda_sdw_set_be_ignore_suspend(struct snd_sof_dev *sdev,
+				   struct snd_soc_dai *cpu_dai, int dir,
+				   bool ignore_suspend);
 
 #else
 
@@ -1007,6 +1010,12 @@ static inline void hda_sdw_process_wakeen(struct snd_sof_dev *sdev)
 static inline bool hda_common_check_sdw_irq(struct snd_sof_dev *sdev)
 {
 	return false;
+}
+
+static inline void hda_sdw_set_be_ignore_suspend(struct snd_sof_dev *sdev,
+						 struct snd_soc_dai *cpu_dai,
+						 int dir, bool ignore_suspend)
+{
 }
 
 #endif

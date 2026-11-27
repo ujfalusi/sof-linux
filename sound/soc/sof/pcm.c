@@ -429,6 +429,28 @@ static int sof_pcm_dapm_set_ignore_suspend(struct snd_sof_dev *sdev,
 	return 0;
 }
 
+/*
+ * Notify the platform code about the BEs of the stream kept running during the
+ * system suspend.
+ */
+static void sof_pcm_be_set_ignore_suspend(struct snd_sof_dev *sdev,
+					  struct snd_soc_pcm_runtime *fe, int dir,
+					  bool ignore_suspend)
+{
+	struct snd_soc_dpcm *dpcm;
+
+	snd_soc_dpcm_mutex_lock(fe);
+	for_each_dpcm_be(fe, dir, dpcm) {
+		struct snd_soc_dai *dai;
+		int i;
+
+		for_each_rtd_cpu_dais(dpcm->be, i, dai)
+			snd_sof_dsp_set_be_ignore_suspend(sdev, dai, dir,
+							  ignore_suspend);
+	}
+	snd_soc_dpcm_mutex_unlock(fe);
+}
+
 /**
  * sof_pcm_suspend_prepare - select the streams to keep running over suspend
  * @sdev: SOF device
@@ -450,6 +472,10 @@ static int sof_pcm_dapm_set_ignore_suspend(struct snd_sof_dev *sdev,
  * The DAPM endpoints of the streams are marked with ignore_suspend to keep
  * their paths powered. The widgets are restored on the next system suspend,
  * the flag has no effect while the card is powered.
+ *
+ * The platform code is notified about the BEs of the streams via the
+ * set_be_ignore_suspend callback to keep them running, they are released in
+ * sof_pcm_suspend_complete().
  *
  * If the DAPM path of a stream can not be kept powered, none of the streams are
  * kept running and all of them are suspended normally.
@@ -516,6 +542,9 @@ void sof_pcm_suspend_prepare(struct snd_sof_dev *sdev)
 					 ret);
 				goto err;
 			}
+
+			sof_pcm_be_set_ignore_suspend(sdev, rtd, dir, true);
+			spcm->be_ignore_suspend[dir] = true;
 		}
 
 		if (rtd->dai_link->ignore_suspend)
@@ -528,12 +557,13 @@ void sof_pcm_suspend_prepare(struct snd_sof_dev *sdev)
 	return;
 
 err:
+	sof_pcm_suspend_complete(sdev);
+
 	list_for_each_entry(spcm, &sdev->pcm_list, list) {
 		for_each_pcm_streams(dir)
 			spcm->stream[dir].suspend_ignored = false;
 	}
 
-	sof_pcm_suspend_complete(sdev);
 	sof_pcm_dapm_restore_ignore_suspend(sdev, true);
 }
 
@@ -542,13 +572,34 @@ err:
  * @sdev: SOF device
  *
  * Called from the PM complete callback, clears the ignore_suspend flag of the
- * dai_links which was set by sof_pcm_suspend_prepare().
+ * dai_links which was set by sof_pcm_suspend_prepare() and releases the BEs of
+ * the streams kept running.
  */
 void sof_pcm_suspend_complete(struct snd_sof_dev *sdev)
 {
 	struct snd_sof_pcm *spcm;
+	int dir;
 
 	list_for_each_entry(spcm, &sdev->pcm_list, list) {
+		/*
+		 * The suspend_ignored flag can not be used here, the stream
+		 * might have been stopped (xrun) during the system resume.
+		 */
+		for_each_pcm_streams(dir) {
+			struct snd_pcm_substream *substream = spcm->stream[dir].substream;
+
+			if (!spcm->be_ignore_suspend[dir])
+				continue;
+
+			spcm->be_ignore_suspend[dir] = false;
+			if (WARN_ON_ONCE(!substream))
+				continue;
+
+			sof_pcm_be_set_ignore_suspend(sdev,
+						      snd_soc_substream_to_rtd(substream),
+						      dir, false);
+		}
+
 		if (!spcm->ignore_suspend_link)
 			continue;
 

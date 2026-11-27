@@ -296,6 +296,16 @@ snd_sof_dsp_set_power_state(struct snd_sof_dev *sdev,
 	return 0;
 }
 
+static inline void
+snd_sof_dsp_set_be_ignore_suspend(struct snd_sof_dev *sdev,
+				  struct snd_soc_dai *cpu_dai, int dir,
+				  bool ignore_suspend)
+{
+	if (sof_ops(sdev)->set_be_ignore_suspend)
+		sof_ops(sdev)->set_be_ignore_suspend(sdev, cpu_dai, dir,
+						     ignore_suspend);
+}
+
 /* debug */
 void snd_sof_dsp_dbg_dump(struct snd_sof_dev *sdev, const char *msg, u32 flags);
 

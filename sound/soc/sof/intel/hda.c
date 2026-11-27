@@ -381,6 +381,36 @@ static void hda_dsp_sdw_process_mic_privacy(struct snd_sof_dev *sdev)
 		chip->process_mic_privacy(sdev, true, AZX_REG_ML_LEPTR_ID_SDW);
 }
 
+/*
+ * Keep the SoundWire stream of the BE running during the system suspend: the
+ * SoundWire bus driver does not stop the bus carrying the stream.
+ */
+void hda_sdw_set_be_ignore_suspend(struct snd_sof_dev *sdev,
+				   struct snd_soc_dai *cpu_dai, int dir,
+				   bool ignore_suspend)
+{
+	struct snd_soc_dapm_widget *w = snd_soc_dai_get_widget(cpu_dai, dir);
+	struct sdw_stream_runtime *sdw_stream;
+	struct snd_sof_widget *swidget;
+	struct snd_sof_dai *sdai;
+
+	if (!w || !w->dobj.private)
+		return;
+
+	swidget = w->dobj.private;
+	sdai = swidget->private;
+	if (!sdai || sdai->type != SOF_DAI_INTEL_ALH)
+		return;
+
+	sdw_stream = snd_soc_dai_get_stream(cpu_dai, dir);
+	if (IS_ERR_OR_NULL(sdw_stream))
+		return;
+
+	dev_dbg(sdev->dev, "%s: %s ignore_suspend: %d\n", cpu_dai->name,
+		sdw_stream->name, ignore_suspend);
+	sdw_stream->ignore_suspend = ignore_suspend;
+}
+
 #else /* IS_ENABLED(CONFIG_SND_SOC_SOF_INTEL_SOUNDWIRE) */
 static inline int hda_sdw_acpi_scan(struct snd_sof_dev *sdev)
 {

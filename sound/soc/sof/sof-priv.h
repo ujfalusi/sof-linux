@@ -323,6 +323,10 @@ struct snd_sof_dsp_ops {
 	int (*set_hw_params_upon_resume)(struct snd_sof_dev *sdev); /* optional */
 	int (*set_power_state)(struct snd_sof_dev *sdev,
 			       const struct sof_dsp_power_state *target_state); /* optional */
+	/* mark the BE DAI to be kept running during system suspend */
+	void (*set_be_ignore_suspend)(struct snd_sof_dev *sdev,
+				      struct snd_soc_dai *cpu_dai, int dir,
+				      bool ignore_suspend); /* optional */
 
 	/* DSP clocking */
 	int (*set_clk)(struct snd_sof_dev *sof_dev, u32 freq); /* optional */
