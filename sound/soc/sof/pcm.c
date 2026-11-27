@@ -269,7 +269,11 @@ int sof_pcm_free_all_streams(struct snd_sof_dev *sdev)
 		for_each_pcm_streams(dir) {
 			substream = spcm->stream[dir].substream;
 
-			if (!substream || !substream->runtime ||
+			if (!substream || !substream->runtime)
+				continue;
+
+			/* skip the streams kept running during S0ix */
+			if (sdev->system_suspend_target == SOF_SUSPEND_S0IX &&
 			    spcm->stream[dir].suspend_ignored)
 				continue;
 
@@ -408,6 +412,8 @@ static int sof_pcm_trigger(struct snd_soc_component *component,
 
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
+		/* the stream is paused, it is no longer kept running */
+		spcm->stream[substream->stream].suspend_ignored = false;
 		ipc_first = true;
 		break;
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
@@ -446,6 +452,8 @@ static int sof_pcm_trigger(struct snd_soc_component *component,
 
 		fallthrough;
 	case SNDRV_PCM_TRIGGER_STOP:
+		/* the stream is stopped, it is no longer kept running */
+		spcm->stream[substream->stream].suspend_ignored = false;
 		ipc_first = true;
 		if (pcm_ops && pcm_ops->reset_hw_params_during_stop)
 			reset_hw_params = true;
